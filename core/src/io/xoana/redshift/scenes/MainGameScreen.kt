@@ -7,6 +7,7 @@ import com.badlogic.gdx.graphics.GL20.GL_COLOR_BUFFER_BIT
 import com.badlogic.gdx.graphics.GL20.GL_DEPTH_BUFFER_BIT
 import com.badlogic.gdx.graphics.PerspectiveCamera
 import com.badlogic.gdx.graphics.VertexAttributes
+import com.badlogic.gdx.graphics.g2d.BitmapFont
 import com.badlogic.gdx.graphics.g3d.*
 import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute
 import com.badlogic.gdx.graphics.g3d.environment.PointLight
@@ -14,6 +15,8 @@ import com.badlogic.gdx.graphics.g3d.utils.DefaultTextureBinder
 import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder
 import com.badlogic.gdx.graphics.g3d.utils.RenderContext
 import com.badlogic.gdx.graphics.glutils.ShaderProgram
+import com.badlogic.gdx.math.Vector3
+import com.badlogic.gdx.scenes.scene2d.Stage
 import io.xoana.redshift.shaders.PBRShader
 
 class MainGameScreen : Screen() {
@@ -24,14 +27,21 @@ class MainGameScreen : Screen() {
 	val modelBatch:ModelBatch
 	val shader:Shader
 
+	val uiStage: Stage
+	val font: BitmapFont
+
 	val debugModel : Model
 	val debugModelInstance : ModelInstance
+	var debugTimeAccumulator: Float = 0f
 
 
 	init {
 		renderContext = RenderContext(DefaultTextureBinder(DefaultTextureBinder.WEIGHTED, 1))
 		camera = PerspectiveCamera(80f, Gdx.graphics.width.toFloat(), Gdx.graphics.height.toFloat())
 		environment = Environment()
+
+		uiStage = Stage()
+		font = BitmapFont()
 
 		shader = PBRShader()
 		shader.init()
@@ -75,17 +85,33 @@ class MainGameScreen : Screen() {
 		Gdx.gl.glClear(GL_COLOR_BUFFER_BIT or GL_DEPTH_BUFFER_BIT)
 
 		modelBatch.begin(camera)
-		modelBatch.render(debugModelInstance)
+		if(isVisible(debugModelInstance)) {
+			modelBatch.render(debugModelInstance)
+		}
 		modelBatch.end()
 	}
 
-	override fun update(deltaTime: Float) {
+	protected fun isVisible(instance: ModelInstance, cam: Camera=camera):Boolean {
+		// By default, use our internal camera.
+		val pos = Vector3()
+		instance.transform.getTranslation(pos)
+		return cam.frustum.pointInFrustum(pos)
+	}
 
+	override fun update(deltaTime: Float) {
+		debugTimeAccumulator += deltaTime
+		//debugModelInstance.transform.trn(1f*Math.cos(0.5*Gdx.graphics.rawDeltaTime.toDouble()).toFloat(), 1f*Math.sin(Gdx.graphics.rawDeltaTime.toDouble()).toFloat(), 0.0f)
+		debugModelInstance.transform.setTranslation(10f*Math.cos(debugTimeAccumulator.toDouble()).toFloat(), 10f*Math.sin(debugTimeAccumulator.toDouble()).toFloat(), 0.0f)
 	}
 
 	override fun dispose() {
 		super.dispose()
 		shader.dispose()
+	}
+
+	override fun resize(width: Int, height: Int) {
+		super.resize(width, height)
+		uiStage.viewport.update(width, height, true)
 	}
 
 }
