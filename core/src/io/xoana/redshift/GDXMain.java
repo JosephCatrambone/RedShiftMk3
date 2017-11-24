@@ -6,8 +6,9 @@ import com.badlogic.gdx.assets.AssetManager;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
-import io.xoana.redshift.scenes.MainGameScreen;
-import io.xoana.redshift.scenes.Screen;
+import io.xoana.redshift.editors.LevelEditorScreen;
+import io.xoana.redshift.screens.MainGameScreen;
+import io.xoana.redshift.screens.Screen;
 
 import java.util.Stack;
 
@@ -18,7 +19,11 @@ public class GDXMain extends ApplicationAdapter {
 	@Override
 	public void create () {
 		assetManager = new AssetManager();
-		screenStack.push(new MainGameScreen());
+		//screenStack.push(new MainGameScreen());
+		screenStack.push(new LevelEditorScreen());
+
+		// We should add a post-init to set up the input listeners and such.
+		screenStack.peek().resize(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
 	}
 
 	@Override

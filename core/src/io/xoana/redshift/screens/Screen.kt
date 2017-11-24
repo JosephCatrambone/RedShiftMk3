@@ -1,4 +1,4 @@
-package io.xoana.redshift.scenes
+package io.xoana.redshift.screens
 
 abstract class Screen {
 	abstract fun render()
