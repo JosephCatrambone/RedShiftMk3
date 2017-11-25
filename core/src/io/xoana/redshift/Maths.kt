@@ -298,6 +298,17 @@ class Triangle(val a:Vec, val b:Vec, val c:Vec) {
 			return p
 		}
 
+		if(pointInTriangle3D(p, epsilon)) {
+			return p
+		} else {
+			return null
+		}
+	}
+
+	fun pointInTriangle3D(p:Vec, epsilon:Float=1e-6f):Boolean {
+		val r = b-a
+		val s = c-a
+
 		// Check to see if the point is inside the triangle.
 		var alpha = r.dot3(r)
 		var beta = r.dot3(s)
@@ -306,7 +317,7 @@ class Triangle(val a:Vec, val b:Vec, val c:Vec) {
 
 		val invDeterminant = alpha*delta - gamma*beta
 		if(Math.abs(invDeterminant) < epsilon) {
-			return null
+			return false
 		}
 		val determinant = 1.0f / invDeterminant
 		alpha *= determinant
@@ -321,11 +332,7 @@ class Triangle(val a:Vec, val b:Vec, val c:Vec) {
 		val u = mRow0.dot(p - a)
 		val v = mRow1.dot(p - a)
 
-		if(u >= 0 && v >= 0 && u <= 1 && v <= 1 && u+v <= 1) {
-			return p
-		} else {
-			return null
-		}
+		return u >= 0 && v >= 0 && u <= 1 && v <= 1 && u+v <= 1
 	}
 
 	fun pointInTriangle2D(p:Vec):Boolean {
@@ -373,6 +380,68 @@ class Triangle(val a:Vec, val b:Vec, val c:Vec) {
 }
 
 class Polygon(val points:List<Vec>) {
+
+	// Triangulate this polygon, returning a list of 3n integers for the indices.
+	// If up is ZERO, we don't care about the ordering of the verts.
+	// If up is nonzero.
+	fun triangulate(up:Vec?=null, counterClockWise:Boolean=true): IntArray {
+		val indices = MutableList<Int>(points.size, {i -> i}) // Copy all the indices.
+		val triangles = mutableListOf<Int>() // Push the triangles in threes to this.
+		var added = true
+		while(indices.size >= 3 && added) {
+			added = false
+			// Pick three points and see if it's a valid triangle.
+			outer@ for(i in 1 until indices.size-1) {
+				val prev = indices[i-1]
+				val cur = indices[i]
+				val next = indices[i+1]
+
+				val triangle = Triangle(points[prev], points[cur], points[next])
+				var valid = true
+				// Check all the other points to see if they're outside this triangle.
+				inner@ for(j in indices) {
+					if(j == prev || j == cur || j == next) {
+						continue // Don't compare against the triangle itself.
+					} else {
+						// Is this point in the triangle?
+						if(triangle.pointInTriangle3D(points[j])) {
+							valid = false
+							break@inner
+						}
+					}
+				}
+				// Might have a triangle.
+				if(valid) {
+					// We do.  Do we need to do special winding?
+					if(up == null) {
+						// No special winding.
+						triangles.add(prev)
+						triangles.add(cur)
+						triangles.add(next)
+					} else {
+						// Figure out the winding of these points.
+						// TODO: Possible source of bugs.  Not sure if this math is right.
+						val ccw = (triangle.b - triangle.a).cross3(triangle.c - triangle.a).dot(up) > 0
+						if((ccw && counterClockWise) || (!ccw && !counterClockWise)) { // Point ordering matches what we want.
+							triangles.add(prev)
+							triangles.add(cur)
+							triangles.add(next)
+						} else {
+							triangles.add(next)
+							triangles.add(cur)
+							triangles.add(prev)
+						}
+					}
+
+					//indices.remove(cur) // NOT REMOVE AT INDEX!
+					indices.removeAt(i)
+					added = true // It may be the case that there are degenerate points.
+				}
+			}
+		}
+		return triangles.toIntArray()
+	}
+
 	fun pointInside(pt:Vec): Boolean {
 		TODO()
 	}
