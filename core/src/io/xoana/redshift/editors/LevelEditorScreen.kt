@@ -2,19 +2,22 @@ package io.xoana.redshift.editors
 
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.Input
-import com.badlogic.gdx.graphics.Color
-import com.badlogic.gdx.graphics.GL20
-import com.badlogic.gdx.graphics.OrthographicCamera
-import com.badlogic.gdx.graphics.PerspectiveCamera
+import com.badlogic.gdx.graphics.*
 import com.badlogic.gdx.graphics.g2d.BitmapFont
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
+import com.badlogic.gdx.graphics.g3d.Material
 import com.badlogic.gdx.graphics.g3d.Model
 import com.badlogic.gdx.graphics.g3d.ModelBatch
+import com.badlogic.gdx.graphics.g3d.ModelInstance
+import com.badlogic.gdx.graphics.g3d.utils.MeshBuilder
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer
 import com.badlogic.gdx.math.Vector3
 import io.xoana.redshift.*
 import io.xoana.redshift.screens.Screen
 import io.xoana.redshift.shaders.PBRShader
+import com.badlogic.gdx.graphics.g3d.utils.MeshPartBuilder
+import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder
+
 
 /**
  * Created by jo on 2017-11-24.
@@ -34,6 +37,7 @@ class LevelEditorScreen : Screen() {
 	val GRID_SCALE_INCREASE_KEY = Input.Keys.EQUALS
 	val GRID_SCALE_DECREASE_KEY = Input.Keys.MINUS
 	val BUILD_MAP = Input.Keys.F12
+	val SWITCH_MODE = Input.Keys.F1
 	val SELECT_TOOL = Input.Keys.Q
 	val DRAW_TOOL = Input.Keys.W
 
@@ -67,7 +71,8 @@ class LevelEditorScreen : Screen() {
 
 	// Editor bits
 	val sectors = mutableListOf<Sector>()
-	val mapModel:Model = Model()
+	var mapModel:Model = Model()
+	var mapModelInstance:ModelInstance = ModelInstance(mapModel)
 	var activeTool: EditorTool = DrawSectorTool(this)
 	var walkMode = false // If we're in walk mode, render 3D, otherwise render in 2D.
 	var modelNeedsRebuild = true // If we've made changes to the polygons or rooms, we need to update the geometry.
@@ -85,7 +90,12 @@ class LevelEditorScreen : Screen() {
 		Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
 		// Two modes; 2D edit and 3D edit.
-		if(walkMode) { // 3D
+		if(walkMode) {
+			walkCamera.update(true)
+
+			modelBatch.begin(walkCamera)
+			modelBatch.render(mapModelInstance)
+			modelBatch.end()
 		} else {
 			editCamera.update(true)
 
@@ -112,6 +122,22 @@ class LevelEditorScreen : Screen() {
 	}
 
 	override fun update(deltaTime: Float) {
+		if(walkMode) {
+			walkModeUpdate(deltaTime)
+		} else {
+			editModeUpdate(deltaTime)
+		}
+
+		if(Gdx.input.isKeyJustPressed(SWITCH_MODE)) {
+			walkMode = !walkMode
+		}
+	}
+
+	fun walkModeUpdate(deltaTime: Float) {
+
+	}
+
+	fun editModeUpdate(deltaTime: Float) {
 		// TODO: We should handle drag events.
 		if(Gdx.input.isButtonPressed(0)) {
 			mouseDown = Vec(Gdx.input.x.toFloat(), Gdx.input.y.toFloat())
@@ -164,8 +190,10 @@ class LevelEditorScreen : Screen() {
 			pushMessage("Grid size: $gridSize")
 		}
 
-		if(Gdx.input.isKeyPressed(BUILD_MAP)) {
-
+		if(Gdx.input.isKeyJustPressed(BUILD_MAP)) {
+			pushMessage("Rebuilding map")
+			buildMap()
+			pushMessage("Map built")
 		}
 
 		activeTool.update(deltaTime)
@@ -230,7 +258,27 @@ class LevelEditorScreen : Screen() {
 	}
 
 	fun buildMap() {
-		pushMessage("Starting map build.")
+		val modelBuilder = ModelBuilder()
+		modelBuilder.begin()
+		// For each sector, build a new node.
+		sectors.forEachIndexed({i, s ->
+			val node = modelBuilder.node()
+			var meshBuilder: MeshPartBuilder = modelBuilder.part(
+				"sector_$i",
+				GL20.GL_TRIANGLES,
+				(VertexAttributes.Usage.Position or VertexAttributes.Usage.Normal or VertexAttributes.Usage.TextureCoordinates).toLong(),
+				Material()
+			)
+			//node.translation.set(10f, 0f, 0f)
+			//meshBuilder.cone(5f, 5f, 5f, 10)
+			s.buildMesh(meshBuilder)
+		})
+
+		val model = modelBuilder.end()
+		mapModelInstance = ModelInstance(model) // Done here because model must outlive modelInstance.
+		val oldModel = mapModel
+		oldModel.dispose()
+		mapModel = model
 
 	}
 }
@@ -428,6 +476,67 @@ class Sector(
 	var floorHeight: Float,
 	var ceilingHeight: Float
 ) {
+	// Each Model has Mesh[], MeshPart[], and Material[].
+	// Mesh has Vert[] and Indices[].
+	// MeshPart has offset and size which points into mesh.
+	// We handle this construction by passing a MeshBuilder into our method.
+	// TODO: Can't say it enough.  THIS NEEDS TO BE OPTIMIZED VERY BADLY!
+	fun buildMesh(meshPartBuilder: MeshPartBuilder) {
+		// TODO: This can be made WAAAAAY more efficient by using vert indices.
+		// TODO: Also, the winding order on the polygons is wrong, so some won't be facing the right way.
+		triangulate().forEach { t ->
+			// Make the floor.
+			val floorOffset = Vec(0f, 0f, floorHeight)
+			meshPartBuilder.triangle(
+				(t.a + floorOffset).toGDXVector3(),
+				(t.b + floorOffset).toGDXVector3(),
+				(t.c + floorOffset).toGDXVector3()
+			)
+			// Make the ceiling.
+			val ceilingOffset = Vec(0f, 0f, ceilingHeight)
+			meshPartBuilder.triangle(
+				(t.a + ceilingOffset).toGDXVector3(),
+				(t.b + ceilingOffset).toGDXVector3(),
+				(t.c + ceilingOffset).toGDXVector3()
+			)
+		}
+		// Make the walls.
+		// GL_CCW is front-facing.
+		for(i in 0 until walls.points.size) {
+			val p0 = walls.points[i]
+			val p1 = walls.points[(i+1)%walls.points.size]
+			// Left triangle, CCW.
+			meshPartBuilder.triangle(
+				Vector3(p0.x, p0.y, floorHeight),
+				Vector3(p1.x, p1.y, floorHeight),
+				Vector3(p0.x, p0.y, ceilingHeight)
+			)
+			// Right triangle, also CCW.
+			meshPartBuilder.triangle(
+				Vector3(p0.x, p0.y, ceilingHeight),
+				Vector3(p1.x, p1.y, floorHeight),
+				Vector3(p1.x, p1.y, ceilingHeight)
+			)
+		}
+	}
+
+	fun triangulate(): Array<Triangle> {
+		val triangles = mutableListOf<Triangle>()
+		// TODO: This looks like n^3 runtime PLUS the allocation overhead.
+		// Make a copy of the verts.
+		val vertList = MutableList<Vec>(this.walls.points.size, {i -> this.walls.points[i]})
+		// While we have more than three points, we want to pull off one edge point and make it into a triangle.
+		while(vertList.size >= 3) {
+			// Pick one point at offset 0, remove it.
+			val p0 = vertList.removeAt(0)
+			// Sample p1 and p2 from the first and last.
+			val p1 = vertList.first()
+			val p2 = vertList.last()
+			triangles.add(Triangle(p0, p1, p2))
+		}
+		return triangles.toTypedArray()
+	}
+
 	fun calculateCenter(): Vec {
 		return walls.points.fold(Vec(), {acc, v -> acc+v}) / walls.points.size.toFloat()
 	}
