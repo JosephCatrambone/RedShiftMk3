@@ -7,6 +7,7 @@ import com.badlogic.gdx.graphics.g2d.BitmapFont
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.g3d.*
 import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute
+import com.badlogic.gdx.graphics.g3d.environment.PointLight
 import com.badlogic.gdx.graphics.g3d.utils.MeshBuilder
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer
 import com.badlogic.gdx.math.Vector3
@@ -29,6 +30,13 @@ import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder
  */
 
 class LevelEditorScreen : Screen() {
+	// 3D shortcuts and movement options
+	val FORWARD_KEY = Input.Keys.W
+	val BACKWARD_KEY = Input.Keys.S
+	val LEFT_KEY = Input.Keys.A
+	val RIGHT_KEY = Input.Keys.D
+
+	// 2D Shortcuts and tool options
 	val CAMERA_BUTTON = 2
 	val CAMERA_DRAG_KEY = Input.Keys.SPACE
 	val CAMERA_ZOOM_KEY = Input.Keys.CONTROL_LEFT
@@ -63,6 +71,7 @@ class LevelEditorScreen : Screen() {
 	var gridSize = 10f
 
 	// For rendering in 3D
+	val lightList = mutableListOf<PointLight>() // TODO: Why can't we fetch this from the environment?
 	val environment = Environment()
 	val walkCamera = PerspectiveCamera()
 	val modelBatch = ModelBatch()
@@ -77,7 +86,7 @@ class LevelEditorScreen : Screen() {
 	var modelNeedsRebuild = true // If we've made changes to the polygons or rooms, we need to update the geometry.
 
 	init {
-		environment.set(ColorAttribute(ColorAttribute.AmbientLight, 1f, 1f, 1f, 1f));
+		environment.set(ColorAttribute(ColorAttribute.AmbientLight, 0f, 0f, 0f, 0f));
 		walkCamera.fieldOfView = 90f
 		walkCamera.near = 0.1f
 		walkCamera.far = 1000f
@@ -93,14 +102,14 @@ class LevelEditorScreen : Screen() {
 
 	override fun render() {
 		Gdx.gl.glClearColor(0f, 0f, 0f, 1f);
-		Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
+		Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT or GL20.GL_DEPTH_BUFFER_BIT);
 
 		// Two modes; 2D edit and 3D edit.
 		if(walkMode) {
 			walkCamera.update(true)
 
 			modelBatch.begin(walkCamera)
-			modelBatch.render(mapModelInstance)
+			modelBatch.render(mapModelInstance, environment)
 			modelBatch.end()
 		} else {
 			editCamera.update(true)
@@ -140,7 +149,12 @@ class LevelEditorScreen : Screen() {
 	}
 
 	fun walkModeUpdate(deltaTime: Float) {
-		walkCamera.rotate(Vector3.Z, deltaTime)
+		if(Gdx.input.isKeyPressed(FORWARD_KEY)) {
+			walkCamera.translate(walkCamera.direction.cpy().scl(deltaTime))
+		} else  if(Gdx.input.isKeyPressed(BACKWARD_KEY)) {
+			walkCamera.translate(walkCamera.direction.cpy().scl(-deltaTime))
+		}
+		println("Camera position: ${walkCamera.position.x} ${walkCamera.position.y} ${walkCamera.position.z}")
 	}
 
 	fun editModeUpdate(deltaTime: Float) {
@@ -201,8 +215,25 @@ class LevelEditorScreen : Screen() {
 			buildMap()
 			pushMessage("Map built")
 
+			// Building lighting.
+			pushMessage("Building lighting")
+			lightList.forEach { environment.remove(it) }
+			sectors.forEach { s ->
+				val center = s.calculateCenter()
+				val color = Color((center.x%255.0f)/255.0f, (center.y%255.0f)/255.0f, (center.z%255.0f)/255.0f, 1.0f)
+				val light = PointLight().set(color ,center.toGDXVector3(), 1.0f)
+				environment.add(light)
+				lightList.add(light)
+			}
+			pushMessage("Built lighting")
+
 			// Move the camera to the middle of sector 0.
-			walkCamera.position.set(sectors.first().calculateCenter().toGDXVector3())
+			val center = sectors.first().calculateCenter()
+			center.z += sectors.first().floorHeight
+			center.z += sectors.first().ceilingHeight
+			center.z /= 2.0f
+			walkCamera.position.set(center.toGDXVector3())
+			println("Moving camera to ${center.x}, ${center.y}, ${center.z}")
 		}
 
 		activeTool.update(deltaTime)
@@ -280,7 +311,8 @@ class LevelEditorScreen : Screen() {
 			var meshBuilder: MeshPartBuilder = modelBuilder.part(
 				"sector_$i",
 				GL20.GL_TRIANGLES,
-				(VertexAttributes.Usage.Position or VertexAttributes.Usage.Normal or VertexAttributes.Usage.TextureCoordinates).toLong(),
+				//(VertexAttributes.Usage.Position or VertexAttributes.Usage.Normal or VertexAttributes.Usage.TextureCoordinates).toLong(),
+				VertexAttributes.Usage.Position.toLong(),
 				mat
 			)
 			//node.translation.set(10f, 0f, 0f)
@@ -293,7 +325,6 @@ class LevelEditorScreen : Screen() {
 		val oldModel = mapModel
 		oldModel.dispose()
 		mapModel = model
-
 	}
 }
 
@@ -477,7 +508,7 @@ class DrawSectorTool(editor:LevelEditorScreen) : EditorTool {
 
 	fun finalizeSector() {
 		// Make our candidate sector into a real one.
-		val s = Sector(Polygon(newSector!!), 0f, 0f)
+		val s = Sector(Polygon(newSector!!), 0f, 10f)
 		editorRef.sectors.add(s)
 		newSector = null
 		println("Finished sector.")
