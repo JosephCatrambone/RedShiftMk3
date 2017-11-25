@@ -1,35 +1,55 @@
 package io.xoana.redshift.editors
 
 import com.badlogic.gdx.Gdx
+import com.badlogic.gdx.Input
 import com.badlogic.gdx.graphics.Color
+import com.badlogic.gdx.graphics.GL20
 import com.badlogic.gdx.graphics.OrthographicCamera
 import com.badlogic.gdx.graphics.PerspectiveCamera
+import com.badlogic.gdx.graphics.g2d.BitmapFont
+import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.g3d.Model
 import com.badlogic.gdx.graphics.g3d.ModelBatch
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer
 import com.badlogic.gdx.math.Vector3
-import com.sun.org.apache.xpath.internal.operations.Or
-import io.xoana.redshift.Polygon
-import io.xoana.redshift.Vec
+import com.badlogic.gdx.scenes.scene2d.Stage
+import com.badlogic.gdx.scenes.scene2d.ui.Label
+import com.badlogic.gdx.scenes.scene2d.ui.Skin
+import io.xoana.redshift.*
 import io.xoana.redshift.screens.Screen
 import io.xoana.redshift.shaders.PBRShader
+import java.util.*
 
 /**
  * Created by jo on 2017-11-24.
  */
 
 class LevelEditorScreen : Screen() {
+	val CAMERA_DRAG_KEY = Input.Keys.SPACE
+	val CAMERA_ZOOM_KEY = Input.Keys.CONTROL_LEFT
+	val GRID_SCALE_INCREASE_KEY = Input.Keys.EQUALS
+	val GRID_SCALE_DECREASE_KEY = Input.Keys.MINUS
+
+	val MIN_EDIT_ZOOM = 0.0f
+	val MAX_EDIT_ZOOM = 10f
+
 	val GRID_COLOR = Color(0.2f, 0.2f, 0.2f, 0.5f)
-	val WALL_COLOR = Color(0.9f, 0.9f, 0.9f, 1.0f)
+	val WALL_COLOR = Color(0.6f, 0.6f, 0.8f, 1.0f)
 	val VERT_SIZE = 3f
-	val VERT_COLOR = Color(0.2f, 0.2f, 0.9f, 1.0f)
+	val VERT_COLOR = Color(0.8f, 0.8f, 0.9f, 1.0f)
 	val SECTOR_FILL_COLOR = Color(0.1f, 0.1f, 0.7f, 0.5f)
 	val sectors = mutableListOf<Sector>()
 
+	// UI
+	val font = BitmapFont()
+	val messageStack = mutableListOf<String>()
+
 	// For 2D rendering.
-	var mouseWasDown = false
-	val editCamera = OrthographicCamera()
+	var mouseDown: Vec? = null // On null, mouse was not down.
+	val editCamera = OrthographicCamera(Gdx.graphics.width.toFloat(), Gdx.graphics.height.toFloat())
 	val shapeBatch = ShapeRenderer() // Maybe a sprite renderer?
+	val spriteBatch = SpriteBatch()
+	var cameraZoom = editCamera.zoom
 	var gridSize = 10f
 
 	// For rendering in 3D
@@ -42,30 +62,73 @@ class LevelEditorScreen : Screen() {
 	val mapModel:Model = Model()
 	var modelNeedsRebuild = true // If we've made changes to the polygons or rooms, we need to update the geometry.
 
+	override fun dispose() {
+		super.dispose()
+		font.dispose()
+		modelBatch.dispose()
+		shader.dispose()
+		mapModel.dispose()
+	}
+
 	override fun render() {
+		Gdx.gl.glClearColor(0f, 0f, 0f, 1f);
+		Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
+
 		// Two modes; 2D edit and 3D edit.
 		if(walkMode) { // 3D
 		} else {
-			editCamera.update()
+			editCamera.update(true)
+
 			shapeBatch.projectionMatrix = editCamera.combined
-			shapeBatch.begin(ShapeRenderer.ShapeType.Filled)
+			shapeBatch.begin(ShapeRenderer.ShapeType.Line)
 			drawGrid(shapeBatch)
 			// Draw all the sectors, then draw the active tool.
-			sectors.forEach({drawSector(shapeBatch, it)})
+			sectors.forEach({drawSector(shapeBatch, it.walls.points)})
 			activeTool.draw(shapeBatch)
 			shapeBatch.end()
+
+			// Draw all the messages on top.
+			spriteBatch.begin()
+			messageStack.forEachIndexed({ ind, msg ->
+				font.draw(spriteBatch, msg as CharSequence, 0f, ind*(font.lineHeight + 2f))
+			})
+			spriteBatch.end()
 		}
 	}
 
 	override fun update(deltaTime: Float) {
 		// TODO: We should handle drag events.
-		if(Gdx.input.isButtonPressed(0) || Gdx.input.isTouched(0)) {
-			mouseWasDown = true
+		if(Gdx.input.isButtonPressed(0)) {
+			mouseDown = Vec(Gdx.input.x.toFloat(), Gdx.input.y.toFloat())
 		} else {
-			if(mouseWasDown) {
-				mouseWasDown = false
+			if(mouseDown != null) {
+				mouseDown = null
 				activeTool.onClick()
 			}
+		}
+
+		// Zoom the camera if the Ctrl button is down and we're using middle mouse,
+		// else scroll camera if middle mouse or spacebar (as long as the zoom key isn't held.
+		if(Gdx.input.isKeyPressed(CAMERA_ZOOM_KEY) && Gdx.input.isButtonPressed(2)) {
+			val dy = Gdx.input.deltaY.toFloat()
+			if(dy != 0f) {
+				val newZoom = cameraZoom+(dy*deltaTime)
+				cameraZoom = maxOf(newZoom, MIN_EDIT_ZOOM)
+				cameraZoom = minOf(cameraZoom, MAX_EDIT_ZOOM)
+				editCamera.zoom = cameraZoom
+				editCamera.update(false)
+			}
+		} else if(Gdx.input.isKeyPressed(CAMERA_DRAG_KEY) || Gdx.input.isButtonPressed(2)) {
+			editCamera.translate(-Gdx.input.deltaX.toFloat(), Gdx.input.deltaY.toFloat())
+		}
+
+		if(Gdx.input.isKeyJustPressed(GRID_SCALE_INCREASE_KEY)) {
+			gridSize *= 2.0f
+			pushMessage("Grid size: $gridSize")
+		}
+		if(Gdx.input.isKeyJustPressed(GRID_SCALE_DECREASE_KEY)) {
+			gridSize = maxOf(gridSize/2f, 1.0f)
+			pushMessage("Grid size: $gridSize")
 		}
 
 		activeTool.update(deltaTime)
@@ -73,28 +136,35 @@ class LevelEditorScreen : Screen() {
 
 	override fun resize(width: Int, height: Int) {
 		super.resize(width, height)
-		//uiStage.viewport.update(width, height, true)
-		editCamera.setToOrtho(false, width.toFloat(), height.toFloat())
+		// These two will update the area to which the camera is drawing, keeping the clicks in the right place on unproject.
+		editCamera.setToOrtho(false, width.toFloat()*cameraZoom, height.toFloat()*cameraZoom)
 		editCamera.update(true)
+		// Doesn't work.  This will change the amount visible to the camera.
+		//editCamera.viewportWidth = width.toFloat()
+		//editCamera.viewportHeight = height.toFloat()
+		//editCamera.update(true)
 	}
 
 	// Can we reuse for the ones that are being drawn?
-	fun drawSector(shapeBatch: ShapeRenderer, sector:Sector) {
+	fun drawSector(shapeBatch: ShapeRenderer, points:List<Vec>, wallColor:Color=WALL_COLOR, vertColor:Color=VERT_COLOR, closeLoop:Boolean=true) {
 		// Assume shapeBatch is already started.
 		// Zip points 0 -> (n-1) and points (1 -> n)
-		sector.walls.points.dropLast(1).zip(sector.walls.points.drop(1)).forEach({ edge ->
-			// Draw point.
-			shapeBatch.color = WALL_COLOR
-			shapeBatch.rect(edge.first.x - VERT_SIZE/2f, edge.first.y - VERT_SIZE/2f, VERT_SIZE, VERT_SIZE)
+		points.dropLast(1).zip(points.drop(1)).forEach({ edge ->
 			// Draw line.
-			shapeBatch.color = VERT_COLOR
+			shapeBatch.color = wallColor
 			shapeBatch.line(edge.first.x, edge.first.y, edge.second.x, edge.second.y)
+			// Draw point.
+			shapeBatch.color = vertColor
+			shapeBatch.rect(edge.first.x - VERT_SIZE/2f, edge.first.y - VERT_SIZE/2f, VERT_SIZE, VERT_SIZE)
 		})
-		// Draw the last point.
-		shapeBatch.color = WALL_COLOR
-		shapeBatch.rect(sector.walls.points.last().x - VERT_SIZE/2f, sector.walls.points.last().y - VERT_SIZE/2f, VERT_SIZE, VERT_SIZE)
-		shapeBatch.color = VERT_COLOR
-		shapeBatch.line(sector.walls.points.last().x, sector.walls.points.last().y, sector.walls.points.first().x, sector.walls.points.first().y)
+		// Draw the last line?
+		if(closeLoop) {
+			shapeBatch.color = wallColor
+			shapeBatch.line(points.last().x, points.last().y, points.first().x, points.first().y)
+		}
+		// Draw the last point no matter what.
+		shapeBatch.color = vertColor
+		shapeBatch.rect(points.last().x - VERT_SIZE / 2f, points.last().y - VERT_SIZE / 2f, VERT_SIZE, VERT_SIZE)
 	}
 
 	fun drawGrid(shapeBatch: ShapeRenderer) {
@@ -116,6 +186,13 @@ class LevelEditorScreen : Screen() {
 	fun snapToGrid(v:Vec): Vec {
 		// This snap works, but it doesn't feel very good.  Instead, round to the nearest instead of using toInt()
 		return Vec(snapToGrid(v.x), snapToGrid(v.y))
+	}
+
+	fun pushMessage(str:String) {
+		messageStack.add(str)
+		TweenManager.add(DelayTween(10f, { _ ->
+			messageStack.remove(str)
+		}))
 	}
 }
 
@@ -195,18 +272,7 @@ class DrawSectorTool(editor:LevelEditorScreen) : EditorTool {
 
 		// Assume shape renderer has started already.
 		if(newSector != null) {
-			val sec = newSector!!
-			for(i in 0 until sec.size-1) {
-				// Draw the point.
-				shapeRenderer.color = VERT_COLOR
-				shapeRenderer.rect(sec[i].x-VERT_SIZE/2f, sec[i].y-VERT_SIZE/2f, VERT_SIZE, VERT_SIZE)
-				// Draw the line.
-				shapeRenderer.color = WALL_COLOR
-				shapeRenderer.line(sec[i].x, sec[i].y, sec[i+1].x, sec[i+1].y)
-			}
-			// Always draw at least the last point.  May result in redundant draws.  That's okay.
-			shapeRenderer.color = VERT_COLOR
-			shapeRenderer.rect(sec.last().x-VERT_SIZE/2f, sec.last().y-VERT_SIZE/2f, VERT_SIZE, VERT_SIZE)
+			editorRef.drawSector(shapeRenderer, newSector!!, wallColor = WALL_COLOR, vertColor = VERT_COLOR, closeLoop = false)
 		}
 	}
 

@@ -31,11 +31,19 @@ public class GDXMain extends ApplicationAdapter {
 		//Gdx.gl.glClearColor(1, 0, 0, 1);
 		//Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 		screenStack.peek().render();
-		screenStack.peek().update(Gdx.graphics.getDeltaTime());
+		float dt = Gdx.graphics.getDeltaTime();
+		TweenManager.update(dt);
+		screenStack.peek().update(dt);
 	}
 	
 	@Override
 	public void dispose () {
 
+	}
+
+	@Override
+	public void resize(int width, int height) {
+		super.resize(width, height);
+		screenStack.peek().resize(width, height);
 	}
 }
