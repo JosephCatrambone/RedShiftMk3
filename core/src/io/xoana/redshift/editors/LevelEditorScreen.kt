@@ -16,6 +16,7 @@ import io.xoana.redshift.screens.Screen
 import io.xoana.redshift.shaders.PBRShader
 import com.badlogic.gdx.graphics.g3d.utils.MeshPartBuilder
 import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder
+import com.badlogic.gdx.math.Quaternion
 
 
 /**
@@ -31,6 +32,9 @@ import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder
 
 class LevelEditorScreen : Screen() {
 	// 3D shortcuts and movement options
+	val X_SENSITIVITY = 0.1f
+	val Y_SENSITIVITY = 0.1f
+	val WALK_SPEED = 100f
 	val FORWARD_KEY = Input.Keys.W
 	val BACKWARD_KEY = Input.Keys.S
 	val LEFT_KEY = Input.Keys.A
@@ -75,7 +79,7 @@ class LevelEditorScreen : Screen() {
 	val environment = Environment()
 	val walkCamera = PerspectiveCamera()
 	val modelBatch = ModelBatch()
-	val shader = PBRShader()
+	//val shader = PBRShader()
 
 	// Editor bits
 	val sectors = mutableListOf<Sector>()
@@ -88,15 +92,18 @@ class LevelEditorScreen : Screen() {
 	init {
 		environment.set(ColorAttribute(ColorAttribute.AmbientLight, 0f, 0f, 0f, 0f));
 		walkCamera.fieldOfView = 90f
-		walkCamera.near = 0.1f
+		walkCamera.near = 0.01f
 		walkCamera.far = 1000f
+		walkCamera.rotate(Quaternion().idt())
+		walkCamera.direction.set(1f, 0f, 0f)
+		walkCamera.up.set(0f, 0f, 1f)
 	}
 
 	override fun dispose() {
 		super.dispose()
 		font.dispose()
 		modelBatch.dispose()
-		shader.dispose()
+		//shader.dispose()
 		mapModel.dispose()
 	}
 
@@ -145,16 +152,29 @@ class LevelEditorScreen : Screen() {
 
 		if(Gdx.input.isKeyJustPressed(SWITCH_MODE)) {
 			walkMode = !walkMode
+			Gdx.input.isCursorCatched = walkMode // When in 3D, don't show cursor.
 		}
 	}
 
 	fun walkModeUpdate(deltaTime: Float) {
+		// Movement
 		if(Gdx.input.isKeyPressed(FORWARD_KEY)) {
-			walkCamera.translate(walkCamera.direction.cpy().scl(deltaTime))
-		} else  if(Gdx.input.isKeyPressed(BACKWARD_KEY)) {
-			walkCamera.translate(walkCamera.direction.cpy().scl(-deltaTime))
+			walkCamera.translate(walkCamera.direction.cpy().scl(deltaTime*WALK_SPEED))
+		} else if(Gdx.input.isKeyPressed(BACKWARD_KEY)) {
+			walkCamera.translate(walkCamera.direction.cpy().scl(-deltaTime*WALK_SPEED))
 		}
-		println("Camera position: ${walkCamera.position.x} ${walkCamera.position.y} ${walkCamera.position.z}")
+		if(Gdx.input.isKeyPressed(RIGHT_KEY)) {
+			val left = walkCamera.up.cpy().crs(walkCamera.direction.cpy())
+			walkCamera.translate(left.scl(deltaTime*-WALK_SPEED))
+		} else if(Gdx.input.isKeyPressed(LEFT_KEY)) {
+			val left = walkCamera.up.cpy().crs(walkCamera.direction.cpy())
+			walkCamera.translate(left.scl(deltaTime*WALK_SPEED))
+		}
+
+		// Camera looking
+		// Mouse delta -> rotation.
+		walkCamera.rotate(walkCamera.up, -Gdx.input.deltaX.toFloat()*X_SENSITIVITY)
+		walkCamera.rotate(walkCamera.up.cpy().crs(walkCamera.direction.cpy()), Gdx.input.deltaY.toFloat()*Y_SENSITIVITY)
 	}
 
 	fun editModeUpdate(deltaTime: Float) {
@@ -232,7 +252,7 @@ class LevelEditorScreen : Screen() {
 			center.z += sectors.first().floorHeight
 			center.z += sectors.first().ceilingHeight
 			center.z /= 2.0f
-			walkCamera.position.set(center.toGDXVector3())
+			walkCamera.lookAt(center.toGDXVector3())
 			println("Moving camera to ${center.x}, ${center.y}, ${center.z}")
 		}
 
@@ -529,6 +549,7 @@ class Sector(
 	fun buildMesh(meshPartBuilder: MeshPartBuilder) {
 		// TODO: This can be made WAAAAAY more efficient by using vert indices.
 		// TODO: Also, the winding order on the polygons is wrong, so some won't be facing the right way.
+		/*
 		triangulate().forEach { t ->
 			// Make the floor.
 			val floorOffset = Vec(0f, 0f, floorHeight)
@@ -545,6 +566,7 @@ class Sector(
 				(t.c + ceilingOffset).toGDXVector3()
 			)
 		}
+		*/
 		// Make the walls.
 		// GL_CCW is front-facing.
 		for(i in 0 until walls.points.size) {
