@@ -558,6 +558,18 @@ class Sector(
 		val floorIndices = walls.triangulate(Vec(0f, 0f, 1f), true).map { i -> i.toShort() }.toShortArray()
 		meshPartBuilder.addMesh(floorVerts, floorIndices)
 
+		// Build the ceiling.
+		val ceilingVerts = FloatArray(walls.points.size*3, {i ->
+			when(i%3) {
+				0 -> walls.points[i/3].x
+				1 -> walls.points[i/3].y
+				2 -> ceilingHeight
+				else -> throw Exception("Impossible: $i%3 >= 3")
+			}
+		})
+		val ceilingIndices = walls.triangulate(Vec(0f, 0f, -1f), true).map { i -> i.toShort() }.toShortArray()
+		meshPartBuilder.addMesh(ceilingVerts, ceilingIndices)
+		
 		// Make the walls.
 		// GL_CCW is front-facing.
 		/*
