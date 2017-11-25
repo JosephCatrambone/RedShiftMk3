@@ -15,6 +15,7 @@ import java.util.Stack;
 public class GDXMain extends ApplicationAdapter {
 	public static Stack<Screen> screenStack = new Stack<Screen>();
 	public static AssetManager assetManager;
+	public static Long frameCount = 0L;
 
 	@Override
 	public void create () {
@@ -34,6 +35,8 @@ public class GDXMain extends ApplicationAdapter {
 		float dt = Gdx.graphics.getDeltaTime();
 		TweenManager.update(dt);
 		screenStack.peek().update(dt);
+
+		frameCount++; // Don't worry about rollaround.  At 1000 FPS it will still take 292000 years to roll over.
 	}
 	
 	@Override
