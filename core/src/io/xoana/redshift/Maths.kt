@@ -436,6 +436,7 @@ class Polygon(val points:List<Vec>) {
 					//indices.remove(cur) // NOT REMOVE AT INDEX!
 					indices.removeAt(i)
 					added = true // It may be the case that there are degenerate points.
+					break@outer
 				}
 			}
 		}

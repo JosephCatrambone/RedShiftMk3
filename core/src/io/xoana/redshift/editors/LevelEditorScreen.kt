@@ -545,30 +545,22 @@ class Sector(
 	// Mesh has Vert[] and Indices[].
 	// MeshPart has offset and size which points into mesh.
 	// We handle this construction by passing a MeshBuilder into our method.
-	// TODO: Can't say it enough.  THIS NEEDS TO BE OPTIMIZED VERY BADLY!
 	fun buildMesh(meshPartBuilder: MeshPartBuilder) {
-		// TODO: This can be made WAAAAAY more efficient by using vert indices.
-		// TODO: Also, the winding order on the polygons is wrong, so some won't be facing the right way.
-		/*
-		triangulate().forEach { t ->
-			// Make the floor.
-			val floorOffset = Vec(0f, 0f, floorHeight)
-			meshPartBuilder.triangle(
-				(t.a + floorOffset).toGDXVector3(),
-				(t.b + floorOffset).toGDXVector3(),
-				(t.c + floorOffset).toGDXVector3()
-			)
-			// Make the ceiling.
-			val ceilingOffset = Vec(0f, 0f, ceilingHeight)
-			meshPartBuilder.triangle(
-				(t.a + ceilingOffset).toGDXVector3(),
-				(t.b + ceilingOffset).toGDXVector3(),
-				(t.c + ceilingOffset).toGDXVector3()
-			)
-		}
-		*/
+		// Make the floor verts.
+		val floorVerts = FloatArray(walls.points.size*3, {i ->
+			when(i%3) {
+				0 -> walls.points[i/3].x
+				1 -> walls.points[i/3].y
+				2 -> floorHeight
+				else -> throw Exception("Impossible: $i%3 >= 3")
+			}
+		})
+		val floorIndices = walls.triangulate(Vec(0f, 0f, 1f), true).map { i -> i.toShort() }.toShortArray()
+		meshPartBuilder.addMesh(floorVerts, floorIndices)
+
 		// Make the walls.
 		// GL_CCW is front-facing.
+		/*
 		for(i in 0 until walls.points.size) {
 			val p0 = walls.points[i]
 			val p1 = walls.points[(i+1)%walls.points.size]
@@ -585,6 +577,7 @@ class Sector(
 				Vector3(p1.x, p1.y, ceilingHeight)
 			)
 		}
+		*/
 	}
 
 	fun triangulate(): Array<Triangle> {
