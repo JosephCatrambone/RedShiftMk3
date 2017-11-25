@@ -8,15 +8,14 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.g3d.*
 import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute
 import com.badlogic.gdx.graphics.g3d.environment.PointLight
-import com.badlogic.gdx.graphics.g3d.utils.MeshBuilder
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer
 import com.badlogic.gdx.math.Vector3
 import io.xoana.redshift.*
 import io.xoana.redshift.screens.Screen
-import io.xoana.redshift.shaders.PBRShader
 import com.badlogic.gdx.graphics.g3d.utils.MeshPartBuilder
 import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder
 import com.badlogic.gdx.math.Quaternion
+import io.xoana.redshift.editors.tools.*
 
 
 /**
@@ -58,6 +57,7 @@ class LevelEditorScreen : Screen() {
 
 	val GRID_COLOR = Color(0.2f, 0.2f, 0.2f, 0.5f)
 	val WALL_COLOR = Color(0.6f, 0.6f, 0.8f, 1.0f)
+	val SHARED_WALL_COLOR = Color(0.9f, 0.3f, 0.3f, 0.9f)
 	val VERT_SIZE = 3f
 	val VERT_COLOR = Color(0.8f, 0.8f, 0.9f, 1.0f)
 	val SECTOR_FILL_COLOR = Color(0.1f, 0.1f, 0.7f, 0.5f)
@@ -85,9 +85,8 @@ class LevelEditorScreen : Screen() {
 	val sectors = mutableListOf<Sector>()
 	var mapModel:Model = Model()
 	var mapModelInstance:ModelInstance = ModelInstance(mapModel)
-	var activeTool: EditorTool = DrawSectorTool(this)
+	var activeTool: EditorTool = DrawTool(this)
 	var walkMode = false // If we're in walk mode, render 3D, otherwise render in 2D.
-	var modelNeedsRebuild = true // If we've made changes to the polygons or rooms, we need to update the geometry.
 
 	init {
 		environment.set(ColorAttribute(ColorAttribute.AmbientLight, 0f, 0f, 0f, 0f));
@@ -128,7 +127,7 @@ class LevelEditorScreen : Screen() {
 			drawGrid(shapeBatch)
 
 			// Draw all the sectors, then draw the active tool.
-			sectors.forEach({drawSector(shapeBatch, it.walls.points)})
+			sectors.forEach({drawSector(shapeBatch, it)})
 
 			// Draw the active tool.
 			activeTool.draw(shapeBatch)
@@ -190,10 +189,10 @@ class LevelEditorScreen : Screen() {
 
 		// Handle tool switching.
 		if(Gdx.input.isKeyJustPressed(SELECT_TOOL)) {
-			activeTool = SelectorTool(this)
+			activeTool = SelectTool(this)
 			pushMessage("Selector Tool")
 		} else if(Gdx.input.isKeyJustPressed(DRAW_TOOL)) {
-			activeTool = DrawSectorTool(this)
+			activeTool = DrawTool(this)
 			pushMessage("Draw Tool")
 		}
 
@@ -236,6 +235,7 @@ class LevelEditorScreen : Screen() {
 			pushMessage("Map built")
 
 			// Building lighting.
+			/*
 			pushMessage("Building lighting")
 			lightList.forEach { environment.remove(it) }
 			sectors.forEach { s ->
@@ -246,6 +246,7 @@ class LevelEditorScreen : Screen() {
 				lightList.add(light)
 			}
 			pushMessage("Built lighting")
+			*/
 
 			// Move the camera to the middle of sector 0.
 			val center = sectors.first().calculateCenter()
@@ -270,25 +271,24 @@ class LevelEditorScreen : Screen() {
 	}
 
 	// Can we reuse for the ones that are being drawn?
-	fun drawSector(shapeBatch: ShapeRenderer, points:List<Vec>, wallColor:Color=WALL_COLOR, vertColor:Color=VERT_COLOR, closeLoop:Boolean=true) {
+	fun drawSector(shapeBatch: ShapeRenderer, sector: Sector) {
 		// Assume shapeBatch is already started.
-		// Zip points 0 -> (n-1) and points (1 -> n)
-		points.dropLast(1).zip(points.drop(1)).forEach({ edge ->
+		for(i in 0 until sector.walls.points.size) {
+			val p1 = sector.walls.points[i]
+			val p2 = sector.walls.points[(i+1)%sector.walls.points.size]
 			// Draw line.
-			shapeBatch.color = wallColor
-			shapeBatch.line(edge.first.x, edge.first.y, edge.second.x, edge.second.y)
+			shapeBatch.color = when(sector.neighbors[i%(sector.walls.points.size-1)]) {
+				null -> WALL_COLOR
+				else -> SHARED_WALL_COLOR
+			}
+			shapeBatch.line(p1.x, p1.y, p2.x, p2.y)
 			// Draw point.
-			shapeBatch.color = vertColor
-			shapeBatch.rect(edge.first.x - VERT_SIZE/2f, edge.first.y - VERT_SIZE/2f, VERT_SIZE, VERT_SIZE)
-		})
-		// Draw the last line?
-		if(closeLoop) {
-			shapeBatch.color = wallColor
-			shapeBatch.line(points.last().x, points.last().y, points.first().x, points.first().y)
+			shapeBatch.color = VERT_COLOR
+			shapeBatch.rect(p1.x - VERT_SIZE / 2f, p1.y - VERT_SIZE / 2f, VERT_SIZE, VERT_SIZE)
 		}
 		// Draw the last point no matter what.
-		shapeBatch.color = vertColor
-		shapeBatch.rect(points.last().x - VERT_SIZE / 2f, points.last().y - VERT_SIZE / 2f, VERT_SIZE, VERT_SIZE)
+		shapeBatch.color = VERT_COLOR
+		shapeBatch.rect(sector.walls.points.last().x - VERT_SIZE / 2f, sector.walls.points.last().y - VERT_SIZE / 2f, VERT_SIZE, VERT_SIZE)
 	}
 
 	fun drawGrid(shapeBatch: ShapeRenderer) {
@@ -346,271 +346,4 @@ class LevelEditorScreen : Screen() {
 		oldModel.dispose()
 		mapModel = model
 	}
-}
-
-interface EditorTool {
-	val editorRef: LevelEditorScreen
-
-	// Do we want this to be on mouse down or mouse up?
-	// For now we're going to be lazy and pass a reference to the Editor which has all the data.
-	// The class itself can read Gdx input.  Maybe we'll refactor later.
-	fun onClick() {}
-	fun update(dt:Float) {} // A generic method to handle all kinds of keystroke stuff.  Only called when active.
-	fun draw(shapeBatch: ShapeRenderer) {}
-}
-
-class SelectorTool(editor:LevelEditorScreen) : EditorTool {
-	val MAX_SELECTION_DISTANCE = 100f
-	val SELECTED_COLOR = Color(0.9f, 0.1f, 0.0f, 0.9f)
-	val DESELECT_KEY = Input.Keys.ESCAPE
-	val DELETE_KEY = Input.Keys.DEL
-
-	override val editorRef: LevelEditorScreen = editor
-	var selected : Sector? = null
-	var deleted: Sector? = null // If we removed one, it's stored here briefly.
-	private val bounds:Vec = Vec() // Using the XYZW here.
-
-	override fun onClick() {
-		if(editorRef.sectors.isEmpty()) {
-			return
-		}
-
-		// Where did we click?
-		val screenMouse = Vector3(Gdx.input.x.toFloat(), Gdx.input.y.toFloat(), 0.0f)
-		val localMouse = Vec(editorRef.editCamera.unproject(screenMouse.cpy()))
-
-		// Iterate through the sectors of the map and select the nearest one based on the vertices.
-		// If there are two verts that overlap, select the sector in which the mouse is located.
-		var minDist = Float.MAX_VALUE
-		var sector = editorRef.sectors.first()
-		editorRef.sectors.forEach { candidateSector ->
-			// Check each of the points in the sector.
-			candidateSector.walls.points.forEach({ p ->
-				// Get the distance to the mouse.
-				val dist = p.distanceSquared(localMouse)
-				if(dist <= minDist) {
-					// Is it equal?  Then check the sector.
-					if(Math.abs(dist - minDist) < 1e-6) {
-						// TODO: The sector in which we clicked rather than the nearest sector.
-						val distToCurrentCenter = sector.calculateCenter().distanceSquared(localMouse)
-						val distToNewCenter = candidateSector.calculateCenter().distanceSquared(localMouse)
-						if(distToNewCenter < distToCurrentCenter) { // New one is closer.  Reassign.
-							// minDist = dist // Equal.
-							sector = candidateSector
-						}
-					} else {
-						minDist = dist
-						sector = candidateSector
-					}
-				}
-			})
-		}
-
-		if(minDist < MAX_SELECTION_DISTANCE*editorRef.cameraZoom) {
-			selected = sector
-		} else {
-			selected = null
-		}
-	}
-
-	override fun update(dt:Float) {
-		// Refresh the bounds.
-		if(GDXMain.frameCount % 10 == 0L) {
-			if(selected != null) {
-				var left = Float.MAX_VALUE
-				var right = Float.MIN_VALUE
-				var top = Float.MIN_VALUE
-				var bottom = Float.MAX_VALUE
-
-				selected!!.walls.points.forEach({ p ->
-					left = minOf(p.x, left)
-					right = maxOf(p.x, right)
-					top = maxOf(p.y, top)
-					bottom = minOf(p.y, bottom)
-				})
-
-				bounds.x = left
-				bounds.y = bottom
-				bounds.z = right - left
-				bounds.w = top - bottom
-			} else {
-				bounds.x = 0f
-				bounds.y = 0f
-				bounds.z = 0f
-				bounds.w = 0f
-			}
-		}
-
-		// Check if the user hit delete and all that.
-		if(Gdx.input.isKeyJustPressed(DESELECT_KEY)) {
-			selected = null
-		}
-
-		if(Gdx.input.isKeyJustPressed(DELETE_KEY) && selected != null) {
-			editorRef.sectors.remove(selected!!)
-			deleted = selected!!
-			selected = null
-			editorRef.pushMessage("Removed sector $deleted")
-		}
-
-		if(Gdx.input.isKeyPressed(Input.Keys.CONTROL_LEFT) && Gdx.input.isKeyJustPressed(Input.Keys.Z)) {
-			if(deleted != null) {
-				selected = deleted
-				editorRef.sectors.add(deleted!!)
-				deleted = null
-				editorRef.pushMessage("UNDO Delete")
-			}
-		}
-	}
-
-	override fun draw(shapeRenderer: ShapeRenderer) {
-		// Draw a selection bound around our sector.
-		shapeRenderer.color = SELECTED_COLOR
-		shapeRenderer.rect(bounds.x, bounds.y, bounds.z, bounds.w)
-	}
-}
-
-class DrawSectorTool(editor:LevelEditorScreen) : EditorTool {
-	val UNDO_BUTTON = Input.Keys.BACKSPACE
-
-	val WALL_COLOR = Color(0.9f, 0.9f, 0.9f, 1.0f)
-	val VERT_SIZE = 3.0f
-	val VERT_COLOR = Color(0.0f, 1.0f, 0.0f, 1.0f)
-
-	override val editorRef = editor
-
-	var newSector: MutableList<Vec>? = null // Null until we start drawing it.
-
-	override fun onClick() {
-		// Grab and unwrap the sector coordinates.
-		val screenMouse = Vector3(Gdx.input.x.toFloat(), Gdx.input.y.toFloat(), 0.0f) // 0.0f for camera-near.
-		val localMouse = Vec(editorRef.editCamera.unproject(screenMouse.cpy())) // Have to copy because GDX mangles this.
-		val snappedPoint = editorRef.snapToGrid(localMouse)
-
-		// We have clicked.  Do we have an active sector?
-		if(newSector == null) { // No sector.  Start building a new one.
-			newSector = mutableListOf<Vec>(snappedPoint) // Place our first point at the mouse coordinates.
-		} else {
-			// Check to see if we're closing the loop.  If not, just add it to the list.
-			if(snappedPoint.distanceSquared(newSector!!.first()) < editorRef.gridSize) {
-				// Close off the loop.
-				finalizeSector()
-			} else {
-				// Haven't clicked near the start.  Just add the point.
-				newSector!!.add(snappedPoint)
-			}
-		}
-	}
-
-	override fun update(dt:Float) {
-		if(Gdx.input.isKeyJustPressed(UNDO_BUTTON) || (Gdx.input.isKeyJustPressed(Input.Keys.Z) && Gdx.input.isKeyPressed(Input.Keys.CONTROL_LEFT))) {
-			// Undo that last thing.
-			if(newSector != null) {
-				if(newSector!!.size == 1) {
-					// Removing only point.  Get rid of the whole sector.
-					newSector = null
-				} else {
-					// Remove that last point.
-					newSector!!.removeAt(newSector!!.size-1)
-				}
-			}
-		}
-	}
-
-	override fun draw(shapeRenderer: ShapeRenderer) {
-		super.draw(shapeRenderer)
-
-		// Assume shape renderer has started already.
-		if(newSector != null) {
-			editorRef.drawSector(shapeRenderer, newSector!!, wallColor = WALL_COLOR, vertColor = VERT_COLOR, closeLoop = false)
-		}
-	}
-
-	fun finalizeSector() {
-		// Make our candidate sector into a real one.
-		val s = Sector(Polygon(newSector!!), 0f, 10f)
-		editorRef.sectors.add(s)
-		newSector = null
-		println("Finished sector.")
-	}
-}
-
-// We'll move this later.  It's here now just for convenience while we hack on it.
-class Sector(
-	var walls: Polygon,
-	var floorHeight: Float,
-	var ceilingHeight: Float
-) {
-	// Each Model has Mesh[], MeshPart[], and Material[].
-	// Mesh has Vert[] and Indices[].
-	// MeshPart has offset and size which points into mesh.
-	// We handle this construction by passing a MeshBuilder into our method.
-	fun buildMesh(meshPartBuilder: MeshPartBuilder) {
-		// Make the floor verts.
-		val floorVerts = FloatArray(walls.points.size*3, {i ->
-			when(i%3) {
-				0 -> walls.points[i/3].x
-				1 -> walls.points[i/3].y
-				2 -> floorHeight
-				else -> throw Exception("Impossible: $i%3 >= 3")
-			}
-		})
-		val floorIndices = walls.triangulate(Vec(0f, 0f, 1f), true).map { i -> i.toShort() }.toShortArray()
-		meshPartBuilder.addMesh(floorVerts, floorIndices)
-
-		// Build the ceiling.
-		val ceilingVerts = FloatArray(walls.points.size*3, {i ->
-			when(i%3) {
-				0 -> walls.points[i/3].x
-				1 -> walls.points[i/3].y
-				2 -> ceilingHeight
-				else -> throw Exception("Impossible: $i%3 >= 3")
-			}
-		})
-		val ceilingIndices = walls.triangulate(Vec(0f, 0f, -1f), true).map { i -> i.toShort() }.toShortArray()
-		meshPartBuilder.addMesh(ceilingVerts, ceilingIndices)
-		
-		// Make the walls.
-		// GL_CCW is front-facing.
-		/*
-		for(i in 0 until walls.points.size) {
-			val p0 = walls.points[i]
-			val p1 = walls.points[(i+1)%walls.points.size]
-			// Left triangle, CCW.
-			meshPartBuilder.triangle(
-				Vector3(p0.x, p0.y, floorHeight),
-				Vector3(p1.x, p1.y, floorHeight),
-				Vector3(p0.x, p0.y, ceilingHeight)
-			)
-			// Right triangle, also CCW.
-			meshPartBuilder.triangle(
-				Vector3(p0.x, p0.y, ceilingHeight),
-				Vector3(p1.x, p1.y, floorHeight),
-				Vector3(p1.x, p1.y, ceilingHeight)
-			)
-		}
-		*/
-	}
-
-	fun triangulate(): Array<Triangle> {
-		val triangles = mutableListOf<Triangle>()
-		// TODO: This looks like n^3 runtime PLUS the allocation overhead.
-		// Make a copy of the verts.
-		val vertList = MutableList<Vec>(this.walls.points.size, {i -> this.walls.points[i]})
-		// While we have more than three points, we want to pull off one edge point and make it into a triangle.
-		while(vertList.size >= 3) {
-			// Pick one point at offset 0, remove it.
-			val p0 = vertList.removeAt(0)
-			// Sample p1 and p2 from the first and last.
-			val p1 = vertList.first()
-			val p2 = vertList.last()
-			triangles.add(Triangle(p0, p1, p2))
-		}
-		return triangles.toTypedArray()
-	}
-
-	fun calculateCenter(): Vec {
-		return walls.points.fold(Vec(), {acc, v -> acc+v}) / walls.points.size.toFloat()
-	}
-
 }
