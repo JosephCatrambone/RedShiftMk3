@@ -137,7 +137,7 @@ class LevelEditorScreen : Screen() {
 			// Draw all the messages on top.
 			spriteBatch.begin()
 			messageStack.forEachIndexed({ ind, msg ->
-				font.draw(spriteBatch, msg as CharSequence, 0f, ind*(font.lineHeight + 2f))
+				font.draw(spriteBatch, msg as CharSequence, 10f, (ind+1)*(font.lineHeight + 2f))
 			})
 			spriteBatch.end()
 		}
