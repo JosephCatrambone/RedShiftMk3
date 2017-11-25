@@ -273,11 +273,14 @@ class LevelEditorScreen : Screen() {
 	// Can we reuse for the ones that are being drawn?
 	fun drawSector(shapeBatch: ShapeRenderer, sector: Sector) {
 		// Assume shapeBatch is already started.
-		for(i in 0 until sector.walls.points.size) {
-			val p1 = sector.walls.points[i]
-			val p2 = sector.walls.points[(i+1)%sector.walls.points.size]
+		sector.getWallIterator().withIndex().forEach { iv ->
+			val i = iv.index
+			val v = iv.value
+			val p1 = v.start
+			val p2 = v.end
+
 			// Draw line.
-			shapeBatch.color = when(sector.neighbors[i%(sector.walls.points.size-1)]) {
+			shapeBatch.color = when(sector.neighbors[i]) {
 				null -> WALL_COLOR
 				else -> SHARED_WALL_COLOR
 			}
@@ -345,5 +348,13 @@ class LevelEditorScreen : Screen() {
 		val oldModel = mapModel
 		oldModel.dispose()
 		mapModel = model
+	}
+
+	fun notifySectorUpdate() {
+		// Called when our sectors have changed.  Do the things we need to do to recompute them.
+		// This may in the future indicate we need to rebuild the map or lighting.
+		// Would be nice if we could avoid iterating over all the sectors, since the method also iterates over all the sectors.
+		// TODO: Performance optimization.
+		this.sectors.forEach { it.updateNeighbors(this.sectors) }
 	}
 }

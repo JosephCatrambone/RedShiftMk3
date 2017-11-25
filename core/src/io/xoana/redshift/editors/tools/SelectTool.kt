@@ -5,10 +5,8 @@ import com.badlogic.gdx.Input
 import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer
 import com.badlogic.gdx.math.Vector3
-import io.xoana.redshift.GDXMain
-import io.xoana.redshift.Vec
 import io.xoana.redshift.editors.LevelEditorScreen
-import io.xoana.redshift.editors.Sector
+import io.xoana.redshift.*
 
 class SelectTool(editor: LevelEditorScreen) : EditorTool {
 	val MAX_SELECTION_DISTANCE = 100f
@@ -101,6 +99,7 @@ class SelectTool(editor: LevelEditorScreen) : EditorTool {
 			editorRef.sectors.remove(selected!!)
 			deleted = selected!!
 			selected = null
+			editorRef.notifySectorUpdate()
 			editorRef.pushMessage("Removed sector $deleted")
 		}
 
@@ -109,6 +108,7 @@ class SelectTool(editor: LevelEditorScreen) : EditorTool {
 				selected = deleted
 				editorRef.sectors.add(deleted!!)
 				deleted = null
+				editorRef.notifySectorUpdate()
 				editorRef.pushMessage("UNDO Delete")
 			}
 		}

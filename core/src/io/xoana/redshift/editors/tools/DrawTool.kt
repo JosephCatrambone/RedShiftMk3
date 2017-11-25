@@ -5,10 +5,8 @@ import com.badlogic.gdx.Input
 import com.badlogic.gdx.graphics.Color
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer
 import com.badlogic.gdx.math.Vector3
-import io.xoana.redshift.Polygon
-import io.xoana.redshift.Vec
+import io.xoana.redshift.*
 import io.xoana.redshift.editors.LevelEditorScreen
-import io.xoana.redshift.editors.Sector
 
 class DrawTool(editor: LevelEditorScreen) : EditorTool {
 	val UNDO_BUTTON = Input.Keys.BACKSPACE
@@ -82,9 +80,7 @@ class DrawTool(editor: LevelEditorScreen) : EditorTool {
 		// Make our candidate sector into a real one.
 		val s = Sector(Polygon(newSector!!), 0f, 10f)
 		editorRef.sectors.add(s)
-		// Update the neighbors for this sector, then update the neighbors for the new neighbors.
-		s.updateNeighbors(editorRef.sectors)
-		s.neighbors.filterNotNull().forEach({ it.updateNeighbors(editorRef.sectors )})
+		editorRef.notifySectorUpdate()
 		// Clear the sector so we can handle the next one.
 		newSector = null
 		println("Finished sector.")

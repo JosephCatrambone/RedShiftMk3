@@ -14,43 +14,30 @@ class Sector(
 	fun updateNeighbors(others: List<Sector>, epsilon:Float=1e-6f) {
 		// Clear the current nbr list.  First make sure the size matches, then set all the elements to null.
 		neighbors.clear()
-		while(neighbors.size < walls.points.size-1) { // Inefficient
+		while(neighbors.size < walls.points.size) { // Inefficient
 			neighbors.add(null)
 		}
 
-		// TODO: This is runtime of O(n^2) for n = #pts.  Needs optimization.
+		// TODO: Perf optimization.  This is runtime of O(n^2) for n = #pts.
 		// Given a list of the sectors, will update the neighbors.
-		for(i in 0 until walls.points.size-1) {
-			// For each of the points in this sector?
-			val p0 = walls.points[i]
-			val p1 = walls.points[(i+1)%walls.points.size]
+		getWallIterator().withIndex().forEach { witer ->
+			val i = witer.index
+			val w1 = witer.value
 			// We can't continue with a forEach,
 			nextWall@for(j in 0 until others.size) {
 				if(this == others[j]) {
 					continue // We can't be neighbors with ourselv.
 				}
 				val nbrCandidate = others[j]
-				// Does p0 match and points in any neighbors?
-				val numNbrPoints = nbrCandidate.walls.points.size
-				for (k in 0 until numNbrPoints) {
-					val q0 = nbrCandidate.walls.points[k]
-					// Do these match?
-					if (p0.distanceSquared(q0) < epsilon) {
-						// Two points match!  Either q1 matches or q-1 matches.
-						// Our neighbor's points may be reversed.  Check both the next and prev.
-						val q1 = nbrCandidate.walls.points[(k + 1) % numNbrPoints]
-						val q2 = nbrCandidate.walls.points[(k + numNbrPoints - 1) % numNbrPoints]
-						// Does this match?
-						if (p1.distanceSquared(q1) < epsilon) {
-							// This is a neighbor!
-							neighbors[i] = nbrCandidate
-							break@nextWall
-						} else if(p1.distanceSquared(q2) < epsilon) {
-							neighbors[i] = nbrCandidate
-							break@nextWall
-						}
+				// We we have a common wall?
+				nbrCandidate.getWallIterator().forEach({ w2 ->
+					if(
+						w1.start.distanceSquared(w2.start) < epsilon && w1.end.distanceSquared(w2.end) < epsilon ||
+						w1.end.distanceSquared(w2.start) < epsilon && w1.start.distanceSquared(w2.end) < epsilon
+							) {
+						neighbors[i] = nbrCandidate
 					}
-				}
+				})
 			}
 		}
 	}
@@ -108,5 +95,22 @@ class Sector(
 
 	fun calculateCenter(): Vec {
 		return walls.points.fold(Vec(), {acc, v -> acc+v}) / walls.points.size.toFloat()
+	}
+
+	fun getWallIterator(): Iterator<Line> {
+		return object : Iterator<Line> {
+			private var currentPoint:Int = 0
+			private val points = walls.points
+
+			override fun hasNext(): Boolean = currentPoint < points.size
+
+			override fun next(): Line {
+				val p0 = points[currentPoint]
+				val p1 = points[(currentPoint+1)%points.size]
+				currentPoint++
+				return Line(p0, p1)
+			}
+
+		}
 	}
 }
