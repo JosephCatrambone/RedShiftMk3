@@ -5,10 +5,8 @@ import com.badlogic.gdx.Input
 import com.badlogic.gdx.graphics.*
 import com.badlogic.gdx.graphics.g2d.BitmapFont
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
-import com.badlogic.gdx.graphics.g3d.Material
-import com.badlogic.gdx.graphics.g3d.Model
-import com.badlogic.gdx.graphics.g3d.ModelBatch
-import com.badlogic.gdx.graphics.g3d.ModelInstance
+import com.badlogic.gdx.graphics.g3d.*
+import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute
 import com.badlogic.gdx.graphics.g3d.utils.MeshBuilder
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer
 import com.badlogic.gdx.math.Vector3
@@ -65,6 +63,7 @@ class LevelEditorScreen : Screen() {
 	var gridSize = 10f
 
 	// For rendering in 3D
+	val environment = Environment()
 	val walkCamera = PerspectiveCamera()
 	val modelBatch = ModelBatch()
 	val shader = PBRShader()
@@ -76,6 +75,13 @@ class LevelEditorScreen : Screen() {
 	var activeTool: EditorTool = DrawSectorTool(this)
 	var walkMode = false // If we're in walk mode, render 3D, otherwise render in 2D.
 	var modelNeedsRebuild = true // If we've made changes to the polygons or rooms, we need to update the geometry.
+
+	init {
+		environment.set(ColorAttribute(ColorAttribute.AmbientLight, 1f, 1f, 1f, 1f));
+		walkCamera.fieldOfView = 90f
+		walkCamera.near = 0.1f
+		walkCamera.far = 1000f
+	}
 
 	override fun dispose() {
 		super.dispose()
@@ -134,7 +140,7 @@ class LevelEditorScreen : Screen() {
 	}
 
 	fun walkModeUpdate(deltaTime: Float) {
-
+		walkCamera.rotate(Vector3.Z, deltaTime)
 	}
 
 	fun editModeUpdate(deltaTime: Float) {
@@ -194,6 +200,9 @@ class LevelEditorScreen : Screen() {
 			pushMessage("Rebuilding map")
 			buildMap()
 			pushMessage("Map built")
+
+			// Move the camera to the middle of sector 0.
+			walkCamera.position.set(sectors.first().calculateCenter().toGDXVector3())
 		}
 
 		activeTool.update(deltaTime)
@@ -204,6 +213,9 @@ class LevelEditorScreen : Screen() {
 		// These two will update the area to which the camera is drawing, keeping the clicks in the right place on unproject.
 		editCamera.setToOrtho(false, width.toFloat()*cameraZoom, height.toFloat()*cameraZoom)
 		editCamera.update(true)
+		walkCamera.viewportWidth = width.toFloat()
+		walkCamera.viewportHeight = height.toFloat()
+		walkCamera.update(true)
 	}
 
 	// Can we reuse for the ones that are being drawn?
@@ -262,12 +274,14 @@ class LevelEditorScreen : Screen() {
 		modelBuilder.begin()
 		// For each sector, build a new node.
 		sectors.forEachIndexed({i, s ->
+			val mat = Material()
+			mat.set(ColorAttribute.createDiffuse(1.0f, 1.0f, 1.0f, 1.0f))
 			val node = modelBuilder.node()
 			var meshBuilder: MeshPartBuilder = modelBuilder.part(
 				"sector_$i",
 				GL20.GL_TRIANGLES,
 				(VertexAttributes.Usage.Position or VertexAttributes.Usage.Normal or VertexAttributes.Usage.TextureCoordinates).toLong(),
-				Material()
+				mat
 			)
 			//node.translation.set(10f, 0f, 0f)
 			//meshBuilder.cone(5f, 5f, 5f, 10)
