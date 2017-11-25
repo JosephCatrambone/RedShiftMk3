@@ -12,23 +12,33 @@ import com.badlogic.gdx.graphics.g3d.Model
 import com.badlogic.gdx.graphics.g3d.ModelBatch
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer
 import com.badlogic.gdx.math.Vector3
-import com.badlogic.gdx.scenes.scene2d.Stage
-import com.badlogic.gdx.scenes.scene2d.ui.Label
-import com.badlogic.gdx.scenes.scene2d.ui.Skin
 import io.xoana.redshift.*
 import io.xoana.redshift.screens.Screen
 import io.xoana.redshift.shaders.PBRShader
-import java.util.*
 
 /**
  * Created by jo on 2017-11-24.
+ * Keyboard shortcuts:
+ * - / = : Change grid size.
+ * Ctrl+ - / = : Change grid size in 1-step increments.
+ * Ctrl+Z or Backspace : Undo placement of last sector vert.
+ * Ctrl+Middle Mouse : Zoom Camera
+ * Middle Mouse or Space : Drag Camera
+ * F12 : Build 3D map.
  */
 
+// We'll move this later.  It's here now just for convenience while we hack on it.
+data class Sector(var walls: Polygon, var floorHeight: Float, var ceilingHeight: Float)
+
 class LevelEditorScreen : Screen() {
+	val CAMERA_BUTTON = 2
 	val CAMERA_DRAG_KEY = Input.Keys.SPACE
 	val CAMERA_ZOOM_KEY = Input.Keys.CONTROL_LEFT
 	val GRID_SCALE_INCREASE_KEY = Input.Keys.EQUALS
 	val GRID_SCALE_DECREASE_KEY = Input.Keys.MINUS
+	val BUILD_MAP = Input.Keys.F12
+
+	val MESSAGE_FADE_TIME = 5f // Five seconds might be too fast.
 
 	val MIN_EDIT_ZOOM = 0.0f
 	val MAX_EDIT_ZOOM = 10f
@@ -38,7 +48,6 @@ class LevelEditorScreen : Screen() {
 	val VERT_SIZE = 3f
 	val VERT_COLOR = Color(0.8f, 0.8f, 0.9f, 1.0f)
 	val SECTOR_FILL_COLOR = Color(0.1f, 0.1f, 0.7f, 0.5f)
-	val sectors = mutableListOf<Sector>()
 
 	// UI
 	val font = BitmapFont()
@@ -57,9 +66,11 @@ class LevelEditorScreen : Screen() {
 	val modelBatch = ModelBatch()
 	val shader = PBRShader()
 
+	// Editor bits
+	val sectors = mutableListOf<Sector>()
+	val mapModel:Model = Model()
 	var activeTool: EditorTool = DrawSectorTool(this)
 	var walkMode = false // If we're in walk mode, render 3D, otherwise render in 2D.
-	val mapModel:Model = Model()
 	var modelNeedsRebuild = true // If we've made changes to the polygons or rooms, we need to update the geometry.
 
 	override fun dispose() {
@@ -109,7 +120,7 @@ class LevelEditorScreen : Screen() {
 
 		// Zoom the camera if the Ctrl button is down and we're using middle mouse,
 		// else scroll camera if middle mouse or spacebar (as long as the zoom key isn't held.
-		if(Gdx.input.isKeyPressed(CAMERA_ZOOM_KEY) && Gdx.input.isButtonPressed(2)) {
+		if(Gdx.input.isKeyPressed(CAMERA_ZOOM_KEY) && Gdx.input.isButtonPressed(CAMERA_BUTTON)) {
 			val dy = Gdx.input.deltaY.toFloat()
 			if(dy != 0f) {
 				val newZoom = cameraZoom+(dy*deltaTime)
@@ -118,17 +129,29 @@ class LevelEditorScreen : Screen() {
 				editCamera.zoom = cameraZoom
 				editCamera.update(false)
 			}
-		} else if(Gdx.input.isKeyPressed(CAMERA_DRAG_KEY) || Gdx.input.isButtonPressed(2)) {
-			editCamera.translate(-Gdx.input.deltaX.toFloat(), Gdx.input.deltaY.toFloat())
+		} else if(Gdx.input.isKeyPressed(CAMERA_DRAG_KEY) || Gdx.input.isButtonPressed(CAMERA_BUTTON)) {
+			editCamera.translate(-Gdx.input.deltaX.toFloat()*cameraZoom, Gdx.input.deltaY.toFloat()*cameraZoom)
 		}
 
 		if(Gdx.input.isKeyJustPressed(GRID_SCALE_INCREASE_KEY)) {
-			gridSize *= 2.0f
+			if(Gdx.input.isKeyPressed(Input.Keys.CONTROL_LEFT)) {
+				gridSize += 1.0f
+			} else {
+				gridSize *= 2.0f
+			}
 			pushMessage("Grid size: $gridSize")
 		}
 		if(Gdx.input.isKeyJustPressed(GRID_SCALE_DECREASE_KEY)) {
-			gridSize = maxOf(gridSize/2f, 1.0f)
+			if(Gdx.input.isKeyPressed(Input.Keys.CONTROL_LEFT)) {
+				gridSize = maxOf(gridSize - 1.0f, 1.0f)
+			} else {
+				gridSize = maxOf(gridSize / 2f, 1.0f)
+			}
 			pushMessage("Grid size: $gridSize")
+		}
+
+		if(Gdx.input.isKeyPressed(BUILD_MAP)) {
+
 		}
 
 		activeTool.update(deltaTime)
@@ -139,10 +162,6 @@ class LevelEditorScreen : Screen() {
 		// These two will update the area to which the camera is drawing, keeping the clicks in the right place on unproject.
 		editCamera.setToOrtho(false, width.toFloat()*cameraZoom, height.toFloat()*cameraZoom)
 		editCamera.update(true)
-		// Doesn't work.  This will change the amount visible to the camera.
-		//editCamera.viewportWidth = width.toFloat()
-		//editCamera.viewportHeight = height.toFloat()
-		//editCamera.update(true)
 	}
 
 	// Can we reuse for the ones that are being drawn?
@@ -190,14 +209,17 @@ class LevelEditorScreen : Screen() {
 
 	fun pushMessage(str:String) {
 		messageStack.add(str)
-		TweenManager.add(DelayTween(10f, { _ ->
+		print("MSG LOG: $str")
+		TweenManager.add(DelayTween(MESSAGE_FADE_TIME, { _ ->
 			messageStack.remove(str)
 		}))
 	}
-}
 
-// We'll move this later.  It's here now just for convenience while we hack on it.
-data class Sector(var walls: Polygon, var floorHeight: Float, var ceilingHeight: Float)
+	fun buildMap() {
+		pushMessage("Starting map build.")
+
+	}
+}
 
 interface EditorTool {
 	val editorRef: LevelEditorScreen
@@ -225,6 +247,8 @@ class SelectorTool(editor:LevelEditorScreen) : EditorTool {
 }
 
 class DrawSectorTool(editor:LevelEditorScreen) : EditorTool {
+	val UNDO_BUTTON = Input.Keys.BACKSPACE
+
 	val WALL_COLOR = Color(0.9f, 0.9f, 0.9f, 1.0f)
 	val VERT_SIZE = 3.0f
 	val VERT_COLOR = Color(0.0f, 1.0f, 0.0f, 1.0f)
@@ -238,15 +262,6 @@ class DrawSectorTool(editor:LevelEditorScreen) : EditorTool {
 		val screenMouse = Vector3(Gdx.input.x.toFloat(), Gdx.input.y.toFloat(), 0.0f) // 0.0f for camera-near.
 		val localMouse = Vec(editorRef.editCamera.unproject(screenMouse.cpy())) // Have to copy because GDX mangles this.
 		val snappedPoint = editorRef.snapToGrid(localMouse)
-
-		// Quick design:
-		// What can happen?
-		// A player can close a sector.
-		// A player can continue editing a sector.
-		// A player can start a new sector.
-		// A player can SPLIT a sector.
-		// Should split be a separate tool?  Both involve drawing.
-		// Let's not worry about that for now.
 
 		// We have clicked.  Do we have an active sector?
 		if(newSector == null) { // No sector.  Start building a new one.
@@ -264,7 +279,18 @@ class DrawSectorTool(editor:LevelEditorScreen) : EditorTool {
 	}
 
 	override fun update(dt:Float) {
-
+		if(Gdx.input.isKeyJustPressed(UNDO_BUTTON) || (Gdx.input.isKeyJustPressed(Input.Keys.Z) && Gdx.input.isKeyPressed(Input.Keys.CONTROL_LEFT))) {
+			// Undo that last thing.
+			if(newSector != null) {
+				if(newSector!!.size == 1) {
+					// Removing only point.  Get rid of the whole sector.
+					newSector = null
+				} else {
+					// Remove that last point.
+					newSector!!.removeAt(newSector!!.size-1)
+				}
+			}
+		}
 	}
 
 	override fun draw(shapeRenderer: ShapeRenderer) {
