@@ -9,7 +9,6 @@ import com.badlogic.gdx.graphics.g3d.*
 import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute
 import com.badlogic.gdx.graphics.g3d.environment.PointLight
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer
-import com.badlogic.gdx.math.Vector3
 import io.xoana.redshift.*
 import io.xoana.redshift.screens.Screen
 import com.badlogic.gdx.graphics.g3d.utils.MeshPartBuilder
@@ -17,6 +16,7 @@ import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder
 import com.badlogic.gdx.math.Quaternion
 import io.xoana.redshift.editors.tools.*
 import io.xoana.redshift.shaders.PBRShader
+import java.util.*
 
 
 /**
@@ -31,10 +31,12 @@ import io.xoana.redshift.shaders.PBRShader
  */
 
 class LevelEditorScreen : Screen() {
+	val random = Random()
+
 	// 3D shortcuts and movement options
-	val X_SENSITIVITY = 0.1f
-	val Y_SENSITIVITY = 0.1f
-	val WALK_SPEED = 100f
+	val X_SENSITIVITY = 0.05f
+	val Y_SENSITIVITY = 0.05f
+	val WALK_SPEED = 10f
 	val FORWARD_KEY = Input.Keys.W
 	val BACKWARD_KEY = Input.Keys.S
 	val LEFT_KEY = Input.Keys.A
@@ -79,6 +81,9 @@ class LevelEditorScreen : Screen() {
 	val lightList = mutableListOf<PointLight>() // TODO: Why can't we fetch this from the environment?
 	val environment = Environment()
 	val walkCamera = PerspectiveCamera()
+	var cameraPan = 0f // Left right.
+	var cameraTilt = 0f // Up down.
+	// cameraRoll = side to side.
 	val modelBatch = ModelBatch()
 	val shader = PBRShader()
 
@@ -92,8 +97,8 @@ class LevelEditorScreen : Screen() {
 	init {
 		//environment.set(ColorAttribute(ColorAttribute.AmbientLight, 0f, 0f, 0f, 0f));
 		walkCamera.fieldOfView = 90f
-		walkCamera.near = 0.01f
-		walkCamera.far = 1000f
+		walkCamera.near = 0.001f
+		walkCamera.far = 500f
 		walkCamera.rotate(Quaternion().idt())
 		walkCamera.direction.set(1f, 0f, 0f)
 		walkCamera.up.set(0f, 0f, 1f)
@@ -177,8 +182,13 @@ class LevelEditorScreen : Screen() {
 
 		// Camera looking
 		// Mouse delta -> rotation.
-		walkCamera.rotate(walkCamera.up, -Gdx.input.deltaX.toFloat()*X_SENSITIVITY)
-		walkCamera.rotate(walkCamera.up.cpy().crs(walkCamera.direction.cpy()), Gdx.input.deltaY.toFloat()*Y_SENSITIVITY)
+		cameraPan += -Gdx.input.deltaX.toFloat()*X_SENSITIVITY
+		cameraTilt += Gdx.input.deltaY.toFloat()*Y_SENSITIVITY
+		// Reset camera to a known direction and apply the changes.
+		walkCamera.up.set(0f, 0f, 1f)
+		walkCamera.direction.set(1f, 0f, 0f)
+		walkCamera.rotate(walkCamera.up, cameraPan)
+		walkCamera.rotate(walkCamera.up.cpy().crs(walkCamera.direction.cpy()), cameraTilt)
 	}
 
 	fun editModeUpdate(deltaTime: Float) {
@@ -244,8 +254,8 @@ class LevelEditorScreen : Screen() {
 			lightList.forEach { environment.remove(it) }
 			sectors.forEach { s ->
 				val center = s.calculateCenter()
-				val color = Color((center.x%255.0f)/255.0f, (center.y%255.0f)/255.0f, (center.z%255.0f)/255.0f, 1.0f)
-				val light = PointLight().set(color, center.toGDXVector3(), 1.0f)
+				val color = Color(random.nextFloat()*0.5f + 0.5f, random.nextFloat()*0.5f + 0.5f, random.nextFloat()*0.5f + 0.5f, 1.0f)
+				val light = PointLight().set(color, center.toGDXVector3(), 10.0f)
 				environment.add(light)
 				lightList.add(light)
 			}
@@ -338,8 +348,8 @@ class LevelEditorScreen : Screen() {
 			val meshBuilder: MeshPartBuilder = modelBuilder.part(
 				"sector_$i",
 				GL20.GL_TRIANGLES,
-				//(VertexAttributes.Usage.Position or VertexAttributes.Usage.Normal or VertexAttributes.Usage.TextureCoordinates).toLong(),
-				VertexAttributes.Usage.Position.toLong(),
+				//(VertexAttributes.Usage.Position or VertexAttributes.Usage.ColorUnpacked or VertexAttributes.Usage.Normal or VertexAttributes.Usage.TextureCoordinates).toLong(),
+				VertexAttributes.Usage.Position.toLong(), // We will only be providing location for now.  Soon UV, etc.
 				mat
 			)
 			//node.translation.set(10f, 0f, 0f)
