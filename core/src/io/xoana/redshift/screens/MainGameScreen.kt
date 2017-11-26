@@ -17,6 +17,8 @@ import com.badlogic.gdx.graphics.g3d.utils.RenderContext
 import com.badlogic.gdx.graphics.glutils.ShaderProgram
 import com.badlogic.gdx.math.Vector3
 import com.badlogic.gdx.scenes.scene2d.Stage
+import io.xoana.redshift.gameobjects.GameObject
+import io.xoana.redshift.levels.Sector
 import io.xoana.redshift.shaders.PBRShader
 
 class MainGameScreen : Screen() {
@@ -34,6 +36,10 @@ class MainGameScreen : Screen() {
 	val debugModelInstance : ModelInstance
 	var debugTimeAccumulator: Float = 0f
 
+	// In theory we could push this list down into the sector.  Would make for faster access, but I don't think sector cares.
+	// In this way, MainGame has the sole responsibility of keeping track of the objects as they move.
+	val gameObjectSectorMap = mutableMapOf<GameObject, Sector>()
+	val sectorGameObjectsMap = mutableMapOf<Sector, MutableSet<GameObject>>()
 
 	init {
 		renderContext = RenderContext(DefaultTextureBinder(DefaultTextureBinder.WEIGHTED, 1))
@@ -86,7 +92,7 @@ class MainGameScreen : Screen() {
 
 		modelBatch.begin(camera)
 		if(isVisible(debugModelInstance)) {
-			modelBatch.render(debugModelInstance, shader)
+			modelBatch.render(debugModelInstance, environment, shader)
 		}
 		modelBatch.end()
 	}
