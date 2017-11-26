@@ -23,6 +23,7 @@ class PBRShader : Shader {
 	val diffuseAttributeIndex: Int
 	val normalAttributeIndex: Int
 
+	val lightIntensityAttributeIndices = IntArray(MAX_LIGHTS)
 	val lightColorAttributeIndices = IntArray(MAX_LIGHTS)
 	val lightPositionAttributeIndices = IntArray(MAX_LIGHTS)
 	val lightSizeAttributeIndices = IntArray(MAX_LIGHTS)
@@ -39,6 +40,7 @@ class PBRShader : Shader {
 		normalAttributeIndex = shaderProgram.getAttributeLocation("a_normal")
 
 		for(i in 0 until MAX_LIGHTS) {
+			lightIntensityAttributeIndices[i] = shaderProgram.getAttributeLocation("a_light${i}_intensity")
 			lightColorAttributeIndices[i] = shaderProgram.getAttributeLocation("a_light${i}_color")
 			lightPositionAttributeIndices[i] = shaderProgram.getAttributeLocation("a_light${i}_position")
 			lightSizeAttributeIndices[i] = shaderProgram.getAttributeLocation("a_light${i}_size")
@@ -64,8 +66,9 @@ class PBRShader : Shader {
 		// Grab the lights from the environment and assign them based on proximity.
 		val pointLights = renderable.environment.get(PointLightsAttribute.Type) as PointLightsAttribute
 		pointLights.lights.forEachIndexed({ i, light ->
-			//shaderProgram.setAttributef())
-			Gdx.gl20.glVertexAttrib3f(lightColorAttributeIndices[i], light.position.x, light.position.y, light.position.z);
+			Gdx.gl20.glVertexAttrib1f(lightIntensityAttributeIndices[i], light.intensity);
+			Gdx.gl20.glVertexAttrib4f(lightColorAttributeIndices[i], light.color.r, light.color.g, light.color.b, light.color.a);
+			Gdx.gl20.glVertexAttrib3f(lightPositionAttributeIndices[i], light.position.x, light.position.y, light.position.z);
 		})
 
 		// Set transform.
