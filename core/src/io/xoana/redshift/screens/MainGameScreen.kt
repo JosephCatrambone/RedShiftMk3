@@ -86,7 +86,7 @@ class MainGameScreen : Screen() {
 
 		modelBatch.begin(camera)
 		if(isVisible(debugModelInstance)) {
-			modelBatch.render(debugModelInstance)
+			modelBatch.render(debugModelInstance, shader)
 		}
 		modelBatch.end()
 	}

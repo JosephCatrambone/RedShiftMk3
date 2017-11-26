@@ -16,6 +16,7 @@ import com.badlogic.gdx.graphics.g3d.utils.MeshPartBuilder
 import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder
 import com.badlogic.gdx.math.Quaternion
 import io.xoana.redshift.editors.tools.*
+import io.xoana.redshift.shaders.PBRShader
 
 
 /**
@@ -79,7 +80,7 @@ class LevelEditorScreen : Screen() {
 	val environment = Environment()
 	val walkCamera = PerspectiveCamera()
 	val modelBatch = ModelBatch()
-	//val shader = PBRShader()
+	val shader = PBRShader()
 
 	// Editor bits
 	val sectors = mutableListOf<Sector>()
@@ -89,20 +90,24 @@ class LevelEditorScreen : Screen() {
 	var walkMode = false // If we're in walk mode, render 3D, otherwise render in 2D.
 
 	init {
-		environment.set(ColorAttribute(ColorAttribute.AmbientLight, 0f, 0f, 0f, 0f));
+		//environment.set(ColorAttribute(ColorAttribute.AmbientLight, 0f, 0f, 0f, 0f));
 		walkCamera.fieldOfView = 90f
 		walkCamera.near = 0.01f
 		walkCamera.far = 1000f
 		walkCamera.rotate(Quaternion().idt())
 		walkCamera.direction.set(1f, 0f, 0f)
 		walkCamera.up.set(0f, 0f, 1f)
+
+		shader.init()
 	}
 
 	override fun dispose() {
 		super.dispose()
 		font.dispose()
 		modelBatch.dispose()
-		//shader.dispose()
+		spriteBatch.dispose()
+		shapeBatch.dispose()
+		shader.dispose()
 		mapModel.dispose()
 	}
 
@@ -115,7 +120,7 @@ class LevelEditorScreen : Screen() {
 			walkCamera.update(true)
 
 			modelBatch.begin(walkCamera)
-			modelBatch.render(mapModelInstance, environment)
+			modelBatch.render(mapModelInstance, environment, shader)
 			modelBatch.end()
 		} else {
 			editCamera.update(true)
@@ -235,18 +240,16 @@ class LevelEditorScreen : Screen() {
 			pushMessage("Map built")
 
 			// Building lighting.
-			/*
 			pushMessage("Building lighting")
 			lightList.forEach { environment.remove(it) }
 			sectors.forEach { s ->
 				val center = s.calculateCenter()
 				val color = Color((center.x%255.0f)/255.0f, (center.y%255.0f)/255.0f, (center.z%255.0f)/255.0f, 1.0f)
-				val light = PointLight().set(color ,center.toGDXVector3(), 1.0f)
+				val light = PointLight().set(color, center.toGDXVector3(), 1.0f)
 				environment.add(light)
 				lightList.add(light)
 			}
 			pushMessage("Built lighting")
-			*/
 
 			// Move the camera to the middle of sector 0.
 			val center = sectors.first().calculateCenter()
@@ -331,7 +334,8 @@ class LevelEditorScreen : Screen() {
 			val mat = Material()
 			mat.set(ColorAttribute.createDiffuse(1.0f, 1.0f, 1.0f, 1.0f))
 			val node = modelBuilder.node()
-			var meshBuilder: MeshPartBuilder = modelBuilder.part(
+			node.id = "sector_$i"
+			val meshBuilder: MeshPartBuilder = modelBuilder.part(
 				"sector_$i",
 				GL20.GL_TRIANGLES,
 				//(VertexAttributes.Usage.Position or VertexAttributes.Usage.Normal or VertexAttributes.Usage.TextureCoordinates).toLong(),

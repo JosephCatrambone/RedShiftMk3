@@ -3,23 +3,29 @@ package io.xoana.redshift.shaders
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.graphics.Camera
 import com.badlogic.gdx.graphics.GL20
-import com.badlogic.gdx.graphics.g3d.Attribute
 import com.badlogic.gdx.graphics.g3d.Renderable
 import com.badlogic.gdx.graphics.g3d.Shader
 import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute
+import com.badlogic.gdx.graphics.g3d.attributes.PointLightsAttribute
 import com.badlogic.gdx.graphics.g3d.utils.RenderContext
 import com.badlogic.gdx.graphics.glutils.ShaderProgram
 import com.badlogic.gdx.utils.GdxRuntimeException
 
 class PBRShader : Shader {
+	val MAX_LIGHTS = 1
 	val shaderProgram : ShaderProgram
 
 	// If we use setAttribute/setUniform, etc. it does a look up based on the string.
 	// Prefetching those names will save us the compute time.
-	val u_worldTransform_index: Int
-	val u_cameraTransform_index: Int
-	val a_diffuse_index: Int
-	val a_normal_index: Int
+	val worldTransformUniformIndex: Int
+	val cameraTransformUniformIndex: Int
+
+	val diffuseAttributeIndex: Int
+	val normalAttributeIndex: Int
+
+	val lightColorAttributeIndices = IntArray(MAX_LIGHTS)
+	val lightPositionAttributeIndices = IntArray(MAX_LIGHTS)
+	val lightSizeAttributeIndices = IntArray(MAX_LIGHTS)
 
 	init {
 		shaderProgram = ShaderProgram(Gdx.files.internal("shaders/vertex.glsl"), Gdx.files.internal("shaders/fragment.glsl"))
@@ -27,10 +33,16 @@ class PBRShader : Shader {
 			throw GdxRuntimeException(shaderProgram.log)
 		}
 
-		u_worldTransform_index = shaderProgram.getUniformLocation("u_worldTransform")
-		u_cameraTransform_index = shaderProgram.getUniformLocation("u_cameraTransform")
-		a_diffuse_index = shaderProgram.getAttributeLocation("a_diffuse")
-		a_normal_index = shaderProgram.getAttributeLocation("a_normal")
+		worldTransformUniformIndex = shaderProgram.getUniformLocation("u_worldTransform")
+		cameraTransformUniformIndex = shaderProgram.getUniformLocation("u_cameraTransform")
+		diffuseAttributeIndex = shaderProgram.getAttributeLocation("a_diffuse")
+		normalAttributeIndex = shaderProgram.getAttributeLocation("a_normal")
+
+		for(i in 0 until MAX_LIGHTS) {
+			lightColorAttributeIndices[i] = shaderProgram.getAttributeLocation("a_light${i}_color")
+			lightPositionAttributeIndices[i] = shaderProgram.getAttributeLocation("a_light${i}_position")
+			lightSizeAttributeIndices[i] = shaderProgram.getAttributeLocation("a_light${i}_size")
+		}
 	}
 
 	override fun init() {}
@@ -43,16 +55,27 @@ class PBRShader : Shader {
 
 	override fun begin(camera: Camera, context: RenderContext) {
 		shaderProgram.begin()
-		shaderProgram.setUniformMatrix(u_cameraTransform_index, camera.combined)
+		shaderProgram.setUniformMatrix(cameraTransformUniformIndex, camera.combined)
 		context.setDepthTest(GL20.GL_LEQUAL)
 		context.setCullFace(GL20.GL_BACK)
 	}
 
 	override fun render(renderable: Renderable) {
-		shaderProgram.setUniformMatrix(u_worldTransform_index, renderable.worldTransform)
+		// Grab the lights from the environment and assign them based on proximity.
+		val pointLights = renderable.environment.get(PointLightsAttribute.Type) as PointLightsAttribute
+		pointLights.lights.forEachIndexed({ i, light ->
+			//shaderProgram.setAttributef())
+			Gdx.gl20.glVertexAttrib3f(lightColorAttributeIndices[i], light.position.x, light.position.y, light.position.z);
+		})
+
+		// Set transform.
+		shaderProgram.setUniformMatrix(worldTransformUniformIndex, renderable.worldTransform)
+
+		// Set color data.
 		val ca:ColorAttribute = renderable.material.get(ColorAttribute.Diffuse) as ColorAttribute
-		//shaderProgram.setAttributef(a_normal_index, ca.color.r, ca.color.g, ca.color.b, ca.color.a)
-		shaderProgram.setUniformf(a_normal_index, ca.color.r, ca.color.g, ca.color.b, ca.color.a)
+		//shaderProgram.setAttributef(normalAttributeIndex, ca.color.r, ca.color.g, ca.color.b, ca.color.a)
+		shaderProgram.setUniformf(diffuseAttributeIndex, ca.color.r, ca.color.g, ca.color.b, ca.color.a)
+
 		renderable.meshPart.render(shaderProgram)
 	}
 
