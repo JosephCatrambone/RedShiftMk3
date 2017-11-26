@@ -137,6 +137,21 @@ class LevelEditorScreen : Screen() {
 			// Draw all the sectors, then draw the active tool.
 			sectors.forEach({drawSector(shapeBatch, it)})
 
+			// Maybe draw the triangulation?
+			println("DEBUG: SLOOOOW")
+			sectors.forEach { s ->
+				shapeBatch.color = Color.CYAN
+				val triangles = s.walls.triangulate(Vec(0f, 0f, 1f))
+				for(i in 0 until triangles.size step 3) {
+					val a = s.walls.points[triangles[i]]
+					val b = s.walls.points[triangles[i+1]]
+					val c = s.walls.points[triangles[i+2]]
+					shapeBatch.line(a.x, a.y, b.x, b.y)
+					shapeBatch.line(b.x, b.y, c.x, c.y)
+					shapeBatch.line(c.x, c.y, a.x, a.y)
+				}
+			}
+
 			// Draw the active tool.
 			activeTool.draw(shapeBatch)
 			shapeBatch.end()

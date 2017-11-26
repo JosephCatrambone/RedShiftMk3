@@ -8,6 +8,7 @@ import com.badlogic.gdx.math.Vector3
  * 2017-11-24 : Added ray-triangle intersection.
  */
 class Vec(var x:Float=0f, var y:Float=0f, var z:Float=0f, var w:Float=0f) {
+	val EPSILON = 1e-6f
 
 	// libGDX Interop section.
 	constructor(v2: Vector2):this(v2.x, v2.y, 0f, 0f)
@@ -34,6 +35,14 @@ class Vec(var x:Float=0f, var y:Float=0f, var z:Float=0f, var w:Float=0f) {
 			this.z = value.getOrElse(2, {_ -> 0f})
 			this.w = value.getOrElse(3, {_ -> 0f})
 		}
+
+	override fun equals(other: Any?): Boolean {
+		if(other !is Vec) {
+			return false
+		}
+
+		return distanceSquared(other) < EPSILON
+	}
 
 	operator fun plus(value:Float):Vec = Vec(this.x+value, this.y+value, this.z+value, this.w+value)
 	operator fun minus(value:Float):Vec = Vec(this.x-value, this.y-value, this.z-value, this.w-value)
@@ -383,9 +392,8 @@ class Polygon(val points:List<Vec>) {
 	// TODO: There's a bug here in the triangulation for big sectors.
 
 	// Triangulate this polygon, returning a list of 3n integers for the indices.
-	// If up is ZERO, we don't care about the ordering of the verts.
-	// If up is nonzero.
-	fun triangulate(up:Vec?=null, counterClockWise:Boolean=true): IntArray {
+	// O(n^3) runtime.
+	fun triangulate(up:Vec, counterClockWise:Boolean=true): IntArray {
 		val indices = MutableList<Int>(points.size, {i -> i}) // Copy all the indices.
 		val triangles = mutableListOf<Int>() // Push the triangles in threes to this.
 		var added = true
@@ -397,41 +405,49 @@ class Polygon(val points:List<Vec>) {
 				val cur = indices[i]
 				val next = indices[i+1]
 
-				val triangle = Triangle(points[prev], points[cur], points[next])
+				// NOTE: Can't do the Delaunay thing where we just check if there are other points inside the cirucmcircle.
+				// TODO: Is this angle more than 180 degrees?  If so, not valid.
+				val a = points[prev]
+				val b = points[cur]
+				val c = points[next]
+				val triangle = Triangle(a, b, c)
 				var valid = true
-				// Check all the other points to see if they're outside this triangle.
-				inner@ for(j in indices) {
-					if(j == prev || j == cur || j == next) {
-						continue // Don't compare against the triangle itself.
+
+				// Check all edges to make sure that ac doesn't intersect them.
+				val diagonal = Line(a, c)
+				inner@ for(j in 0 until points.size-1) { // Ignores last edge.
+					val jNext = (j+1)%points.size
+					if((points[j] == a && points[jNext] == c) || (points[j] == c && points[jNext] == a)) {
+						continue
+					}
+					val edge = Line(points[j], points[jNext])
+					val intersection = diagonal.segmentIntersection2D(edge)
+					if(intersection == null) {
+						continue // No intersection!
 					} else {
-						// Is this point in the triangle?
-						if(triangle.pointInTriangle3D(points[j])) {
-							valid = false
-							break@inner
+						// Ignore the case where we intersect exactly on the edge, like if it's part of this triangle.
+						if(intersection == a || intersection == b || intersection == c) {
+							continue
 						}
+						valid = false
+						break@inner
 					}
 				}
+
 				// Might have a triangle.
 				if(valid) {
-					// We do.  Do we need to do special winding?
-					if(up == null) {
-						// No special winding.
+					// TODO: Check if this triangle is inside the polygon by getting the center of the triangle and doing the ray check.
+					// Figure out the winding of these points.
+					// TODO: Possible source of bugs.  Not sure if this math is right.
+					val ccw = (triangle.b - triangle.a).cross3(triangle.c - triangle.a).dot(up) > 0
+					if((ccw && counterClockWise) || (!ccw && !counterClockWise)) { // Point ordering matches what we want.
 						triangles.add(prev)
 						triangles.add(cur)
 						triangles.add(next)
 					} else {
-						// Figure out the winding of these points.
-						// TODO: Possible source of bugs.  Not sure if this math is right.
-						val ccw = (triangle.b - triangle.a).cross3(triangle.c - triangle.a).dot(up) > 0
-						if((ccw && counterClockWise) || (!ccw && !counterClockWise)) { // Point ordering matches what we want.
-							triangles.add(prev)
-							triangles.add(cur)
-							triangles.add(next)
-						} else {
-							triangles.add(next)
-							triangles.add(cur)
-							triangles.add(prev)
-						}
+						triangles.add(next)
+						triangles.add(cur)
+						triangles.add(prev)
 					}
 
 					//indices.remove(cur) // NOT REMOVE AT INDEX!

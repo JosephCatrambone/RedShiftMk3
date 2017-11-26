@@ -11,6 +11,7 @@ import io.xoana.redshift.editors.LevelEditorScreen;
 import io.xoana.redshift.screens.MainGameScreen;
 import io.xoana.redshift.screens.Screen;
 
+import java.util.Comparator;
 import java.util.Stack;
 
 public class GDXMain extends ApplicationAdapter {
@@ -24,8 +25,8 @@ public class GDXMain extends ApplicationAdapter {
 	@Override
 	public void create () {
 		assetManager = new AssetManager();
-		screenStack.push(new MainGameScreen());
-		//screenStack.push(new LevelEditorScreen());
+		//screenStack.push(new MainGameScreen());
+		screenStack.push(new LevelEditorScreen());
 
 		// We should add a post-init to set up the input listeners and such.
 		screenStack.peek().resize(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
