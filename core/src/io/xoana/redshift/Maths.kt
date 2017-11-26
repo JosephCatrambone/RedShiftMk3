@@ -380,6 +380,7 @@ class Triangle(val a:Vec, val b:Vec, val c:Vec) {
 }
 
 class Polygon(val points:List<Vec>) {
+	// TODO: There's a bug here in the triangulation for big sectors.
 
 	// Triangulate this polygon, returning a list of 3n integers for the indices.
 	// If up is ZERO, we don't care about the ordering of the verts.

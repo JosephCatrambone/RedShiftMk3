@@ -7,6 +7,7 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer
 import com.badlogic.gdx.math.Vector3
 import io.xoana.redshift.editors.LevelEditorScreen
 import io.xoana.redshift.*
+import io.xoana.redshift.levels.Sector
 
 class SelectTool(editor: LevelEditorScreen) : EditorTool {
 	val MAX_SELECTION_DISTANCE = 100f

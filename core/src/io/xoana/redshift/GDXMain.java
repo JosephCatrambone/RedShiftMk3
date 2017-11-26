@@ -18,6 +18,9 @@ public class GDXMain extends ApplicationAdapter {
 	public static AssetManager assetManager;
 	public static Long frameCount = 0L;
 
+	public float timeToNextCapture = 0f;
+	public int lastFrameCaptureCount = 0;
+
 	@Override
 	public void create () {
 		assetManager = new AssetManager();
@@ -38,6 +41,15 @@ public class GDXMain extends ApplicationAdapter {
 		screenStack.peek().update(dt);
 
 		frameCount++; // Don't worry about rollaround.  At 1000 FPS it will still take 292000 years to roll over.
+
+		// FPS Counter:
+		lastFrameCaptureCount++;
+		if(timeToNextCapture <= 0f) {
+			timeToNextCapture = 1f;
+			System.out.println("FPS: " + lastFrameCaptureCount);
+			lastFrameCaptureCount = 0;
+		}
+		timeToNextCapture -= dt;
 	}
 	
 	@Override

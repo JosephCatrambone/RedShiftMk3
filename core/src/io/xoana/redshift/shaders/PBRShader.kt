@@ -79,9 +79,6 @@ class PBRShader : Shader {
 			//Gdx.gl30.glVertexAttrib3f(lightPositionUniformIndices[i], light.position.x, light.position.y, light.position.z);
 		})
 
-		// Bind the vertices.  Good idea to do for every object?  Probably not.
-		// TODO: Why are these still bound somehow.
-
 		// Set transform.
 		shaderProgram.setUniformMatrix(worldTransformUniformIndex, renderable.worldTransform)
 

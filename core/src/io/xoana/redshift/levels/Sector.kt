@@ -1,6 +1,9 @@
-package io.xoana.redshift
+package io.xoana.redshift.levels
 
 import com.badlogic.gdx.graphics.g3d.utils.MeshPartBuilder
+import io.xoana.redshift.Line
+import io.xoana.redshift.Polygon
+import io.xoana.redshift.Vec
 
 class Sector(
 		var walls: Polygon,
@@ -94,7 +97,7 @@ class Sector(
 	}
 
 	fun calculateCenter(): Vec {
-		return walls.points.fold(Vec(), {acc, v -> acc+v}) / walls.points.size.toFloat()
+		return walls.points.fold(Vec(), { acc, v -> acc+v}) / walls.points.size.toFloat()
 	}
 
 	fun getWallIterator(): Iterator<Line> {

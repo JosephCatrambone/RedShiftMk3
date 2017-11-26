@@ -6,15 +6,14 @@ import com.badlogic.gdx.graphics.*
 import com.badlogic.gdx.graphics.g2d.BitmapFont
 import com.badlogic.gdx.graphics.g2d.SpriteBatch
 import com.badlogic.gdx.graphics.g3d.*
-import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute
 import com.badlogic.gdx.graphics.g3d.environment.PointLight
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer
 import io.xoana.redshift.*
 import io.xoana.redshift.screens.Screen
-import com.badlogic.gdx.graphics.g3d.utils.MeshPartBuilder
-import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder
 import com.badlogic.gdx.math.Quaternion
 import io.xoana.redshift.editors.tools.*
+import io.xoana.redshift.levels.Level
+import io.xoana.redshift.levels.Sector
 import io.xoana.redshift.shaders.PBRShader
 import java.util.*
 
@@ -89,8 +88,7 @@ class LevelEditorScreen : Screen() {
 
 	// Editor bits
 	val sectors = mutableListOf<Sector>()
-	var mapModel:Model = Model()
-	var mapModelInstance:ModelInstance = ModelInstance(mapModel)
+	var level: Level = Level(arrayListOf<Sector>())
 	var activeTool: EditorTool = DrawTool(this)
 	var walkMode = false // If we're in walk mode, render 3D, otherwise render in 2D.
 
@@ -113,7 +111,7 @@ class LevelEditorScreen : Screen() {
 		spriteBatch.dispose()
 		shapeBatch.dispose()
 		shader.dispose()
-		mapModel.dispose()
+		level.dispose()
 	}
 
 	override fun render() {
@@ -125,7 +123,7 @@ class LevelEditorScreen : Screen() {
 			walkCamera.update(true)
 
 			modelBatch.begin(walkCamera)
-			modelBatch.render(mapModelInstance, environment, shader)
+			modelBatch.render(level.modelInstance, environment, shader)
 			modelBatch.end()
 		} else {
 			editCamera.update(true)
@@ -246,7 +244,7 @@ class LevelEditorScreen : Screen() {
 
 		if(Gdx.input.isKeyJustPressed(BUILD_MAP)) {
 			pushMessage("Rebuilding map")
-			buildMap()
+			rebuildLevel()
 			pushMessage("Map built")
 
 			// Building lighting.
@@ -336,32 +334,9 @@ class LevelEditorScreen : Screen() {
 		}))
 	}
 
-	fun buildMap() {
-		val modelBuilder = ModelBuilder()
-		modelBuilder.begin()
-		// For each sector, build a new node.
-		sectors.forEachIndexed({i, s ->
-			val mat = Material()
-			mat.set(ColorAttribute.createDiffuse(1.0f, 1.0f, 1.0f, 1.0f))
-			val node = modelBuilder.node()
-			node.id = "sector_$i"
-			val meshBuilder: MeshPartBuilder = modelBuilder.part(
-				"sector_$i",
-				GL20.GL_TRIANGLES,
-				//(VertexAttributes.Usage.Position or VertexAttributes.Usage.ColorUnpacked or VertexAttributes.Usage.Normal or VertexAttributes.Usage.TextureCoordinates).toLong(),
-				VertexAttributes.Usage.Position.toLong(), // We will only be providing location for now.  Soon UV, etc.
-				mat
-			)
-			//node.translation.set(10f, 0f, 0f)
-			//meshBuilder.cone(5f, 5f, 5f, 10)
-			s.buildMesh(meshBuilder)
-		})
-
-		val model = modelBuilder.end()
-		mapModelInstance = ModelInstance(model) // Done here because model must outlive modelInstance.
-		val oldModel = mapModel
-		oldModel.dispose()
-		mapModel = model
+	fun rebuildLevel() {
+		level.dispose()
+		level = Level(this.sectors)
 	}
 
 	fun notifySectorUpdate() {

@@ -7,6 +7,7 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer
 import com.badlogic.gdx.math.Vector3
 import io.xoana.redshift.*
 import io.xoana.redshift.editors.LevelEditorScreen
+import io.xoana.redshift.levels.Sector
 
 class DrawTool(editor: LevelEditorScreen) : EditorTool {
 	val UNDO_BUTTON = Input.Keys.BACKSPACE
