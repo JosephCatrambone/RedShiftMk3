@@ -47,6 +47,7 @@ class LevelEditorScreen : Screen() {
 	val CAMERA_ZOOM_KEY = Input.Keys.CONTROL_LEFT
 	val GRID_SCALE_INCREASE_KEY = Input.Keys.EQUALS
 	val GRID_SCALE_DECREASE_KEY = Input.Keys.MINUS
+	val TOGGLE_TRIANGULATION_DISPLAY = Input.Keys.TAB
 	val BUILD_MAP = Input.Keys.F12
 	val SWITCH_MODE = Input.Keys.F1
 	val SELECT_TOOL = Input.Keys.Q
@@ -75,6 +76,7 @@ class LevelEditorScreen : Screen() {
 	val spriteBatch = SpriteBatch()
 	var cameraZoom = editCamera.zoom
 	var gridSize = 10f
+	var displayTriangulation = false
 
 	// For rendering in 3D
 	val lightList = mutableListOf<PointLight>() // TODO: Why can't we fetch this from the environment?
@@ -138,17 +140,18 @@ class LevelEditorScreen : Screen() {
 			sectors.forEach({drawSector(shapeBatch, it)})
 
 			// Maybe draw the triangulation?
-			println("DEBUG: SLOOOOW")
-			sectors.forEach { s ->
-				shapeBatch.color = Color.CYAN
-				val triangles = s.walls.triangulate(Vec(0f, 0f, 1f))
-				for(i in 0 until triangles.size step 3) {
-					val a = s.walls.points[triangles[i]]
-					val b = s.walls.points[triangles[i+1]]
-					val c = s.walls.points[triangles[i+2]]
-					shapeBatch.line(a.x, a.y, b.x, b.y)
-					shapeBatch.line(b.x, b.y, c.x, c.y)
-					shapeBatch.line(c.x, c.y, a.x, a.y)
+			if(displayTriangulation) {
+				sectors.forEach { s ->
+					shapeBatch.color = Color.CYAN
+					val triangles = s.walls.triangulate(Vec(0f, 0f, 1f))
+					for (i in 0 until triangles.size step 3) {
+						val a = s.walls.points[triangles[i]]
+						val b = s.walls.points[triangles[i + 1]]
+						val c = s.walls.points[triangles[i + 2]]
+						shapeBatch.line(a.x, a.y, b.x, b.y)
+						shapeBatch.line(b.x, b.y, c.x, c.y)
+						shapeBatch.line(c.x, c.y, a.x, a.y)
+					}
 				}
 			}
 
@@ -212,6 +215,14 @@ class LevelEditorScreen : Screen() {
 			if(mouseDown != null) {
 				mouseDown = null
 				activeTool.onClick()
+			}
+		}
+
+		// Show triangulation.
+		if(Gdx.input.isKeyJustPressed(TOGGLE_TRIANGULATION_DISPLAY)) {
+			displayTriangulation = !displayTriangulation
+			if(displayTriangulation) {
+				pushMessage("Displaying triangulation.  Will impact framerate.")
 			}
 		}
 

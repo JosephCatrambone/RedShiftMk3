@@ -36,6 +36,10 @@ class Vec(var x:Float=0f, var y:Float=0f, var z:Float=0f, var w:Float=0f) {
 			this.w = value.getOrElse(3, {_ -> 0f})
 		}
 
+	override fun toString(): String {
+		return "<$x, $y, $z, $w>"
+	}
+
 	override fun equals(other: Any?): Boolean {
 		if(other !is Vec) {
 			return false
@@ -274,6 +278,9 @@ class AABB(val x:Float, val y:Float, val w:Float, val h:Float) {
 }
 
 class Triangle(val a:Vec, val b:Vec, val c:Vec) {
+	val normal: Vec
+		get() = (b-a).cross3(c-a)
+
 	fun intersection(line:Line, lineSegment:Boolean=false, planeIntersection:Boolean=false, epsilon:Float=1e-6f): Vec? {
 		/*
 		If the line doesn't intersect the triangle, returns null.
@@ -368,11 +375,11 @@ class Triangle(val a:Vec, val b:Vec, val c:Vec) {
 		val v2 = p-a
 
 		// Compute dot products
-		val dot00 = v0.dot(v0)
-		val dot01 = v0.dot(v1)
-		val dot02 = v0.dot(v2)
-		val dot11 = v1.dot(v1)
-		val dot12 = v1.dot(v2)
+		val dot00 = v0.dot2(v0)
+		val dot01 = v0.dot2(v1)
+		val dot02 = v0.dot2(v2)
+		val dot11 = v1.dot2(v1)
+		val dot12 = v1.dot2(v2)
 
 		// Compute barycentric coordinates
 		val denom = (dot00 * dot11 - dot01 * dot01)
@@ -399,69 +406,84 @@ class Polygon(val points:List<Vec>) {
 		var added = true
 		while(indices.size >= 3 && added) {
 			added = false
+
 			// Pick three points and see if it's a valid triangle.
-			outer@ for(i in 1 until indices.size-1) {
-				val prev = indices[i-1]
-				val cur = indices[i]
-				val next = indices[i+1]
+			outer@for(i in 0 until indices.size-2) {
+				val indA = indices[i]
+				val indB = indices[(i+1) % indices.size]
+				val indC = indices[(i+2) % indices.size]
+				val a = points[indA]
+				val b = points[indB]
+				val c = points[indC]
 
-				// NOTE: Can't do the Delaunay thing where we just check if there are other points inside the cirucmcircle.
-				// TODO: Is this angle more than 180 degrees?  If so, not valid.
-				val a = points[prev]
-				val b = points[cur]
-				val c = points[next]
+				// Check orientation of this segment.
 				val triangle = Triangle(a, b, c)
-				var valid = true
-
-				// Check all edges to make sure that ac doesn't intersect them.
-				val diagonal = Line(a, c)
-				inner@ for(j in 0 until points.size-1) { // Ignores last edge.
-					val jNext = (j+1)%points.size
-					if((points[j] == a && points[jNext] == c) || (points[j] == c && points[jNext] == a)) {
-						continue
-					}
-					val edge = Line(points[j], points[jNext])
-					val intersection = diagonal.segmentIntersection2D(edge)
-					if(intersection == null) {
-						continue // No intersection!
+				val ind = if(triangle.normal.dot3(up) > 0) {
+					// Normal of ABC is pointing in the opposite direction of UP.
+					// Since pointing in the same direction as up indicates a clockwise rotation...
+					if(counterClockWise) {
+						Triple(indC, indB, indA) // Reverse
 					} else {
-						// Ignore the case where we intersect exactly on the edge, like if it's part of this triangle.
-						if(intersection == a || intersection == b || intersection == c) {
-							continue
+						Triple(indA, indB, indC)
+					}
+				} else {
+					// triABC is in the opposite direction of the 'up' vector.
+					// So our winding is counter clockwise.
+					if(counterClockWise) {
+						Triple(indA, indB, indC)
+					} else {
+						Triple(indC, indB, indA) // Reverse
+					}
+				}
+
+				// Check to see if AC intersects any of the other lines in this polygon.
+				val edgeAC = Line(a, c)
+				for(j in 0 until points.size-1) {
+					val edge = Line(
+						points[j],
+						points[(j+1)%points.size]
+					)
+					val collision = edgeAC.segmentIntersection2D(edge)
+					if(collision != null) { // Collision!
+						if(collision == a || collision == c) {
+							continue // We don't care about collisions with self.
+						} else {
+							// Invalid triangle.
+							continue@outer
 						}
-						valid = false
-						break@inner
 					}
 				}
 
-				// Might have a triangle.
-				if(valid) {
-					// TODO: Check if this triangle is inside the polygon by getting the center of the triangle and doing the ray check.
-					// Figure out the winding of these points.
-					// TODO: Possible source of bugs.  Not sure if this math is right.
-					val ccw = (triangle.b - triangle.a).cross3(triangle.c - triangle.a).dot(up) > 0
-					if((ccw && counterClockWise) || (!ccw && !counterClockWise)) { // Point ordering matches what we want.
-						triangles.add(prev)
-						triangles.add(cur)
-						triangles.add(next)
-					} else {
-						triangles.add(next)
-						triangles.add(cur)
-						triangles.add(prev)
-					}
+				// This triangle is okay.
+				triangles.add(ind.first)
+				triangles.add(ind.second)
+				triangles.add(ind.third)
 
-					//indices.remove(cur) // NOT REMOVE AT INDEX!
-					indices.removeAt(i)
-					added = true // It may be the case that there are degenerate points.
-					break@outer
-				}
+				indices.remove(ind.second)
+				added = true
+				break@outer
 			}
 		}
 		return triangles.toIntArray()
 	}
 
 	fun pointInside(pt:Vec): Boolean {
-		TODO()
+		// Cast a ray past the right edge.  If it crosses an even number of lines, it's outside.  Odd number, inside.
+		// First, find the max value of this polygon.
+		val maxX = points.fold(-Float.MAX_VALUE, {acc, newVal -> maxOf(acc, newVal.x)})
+		// Build a line that reaches past the right side.
+		val line = Line(pt, pt+Vec(maxX+1f, 0f))
+		// Count the intersections.
+		var intersectionCount = 0
+		for(i in 0 until points.size-1) {
+			val p1 = points[i]
+			val p2 = points[(i+1)%points.size]
+			val otherLine = Line(p1, p2)
+			if(line.segmentIntersection2D(otherLine) != null) {
+				intersectionCount++
+			}
+		}
+		return intersectionCount%2 == 0
 	}
 
 	fun splitAtPoints(p1:Vec, p2:Vec, vararg innerPoints:Vec): Pair<Polygon, Polygon> {
