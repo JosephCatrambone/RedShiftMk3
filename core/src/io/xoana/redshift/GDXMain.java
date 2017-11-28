@@ -26,9 +26,9 @@ public class GDXMain extends ApplicationAdapter {
 	@Override
 	public void create () {
 		assetManager = new AssetManager();
-		//screenStack.push(new MainGameScreen());
+		screenStack.push(new MainGameScreen());
 		//screenStack.push(new LevelEditorScreen());
-		screenStack.push(new DebugDemoScreen());
+		//screenStack.push(new DebugDemoScreen());
 
 		// We should add a post-init to set up the input listeners and such.
 		screenStack.peek().resize(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());

@@ -52,7 +52,7 @@ class MainGameScreen : Screen() {
 		shader = PBRShader()
 		shader.init()
 
-		environment.add(PointLight().set(Color(1.0f, 1.0f, 1.0f, 1.0f), 0.0f, 0.0f, 10.0f, 1.0f))
+		environment.add(PointLight().set(Color(1.0f, 1.0f, 1.0f, 1.0f), 10.0f, 0.0f, 0.0f, 10.0f))
 
 		camera.position.set(10f, 10f, 10f)
 		camera.lookAt(0f, 0f, 0f)
@@ -61,7 +61,7 @@ class MainGameScreen : Screen() {
 		modelBatch = ModelBatch(renderContext)
 
 		val mb = ModelBuilder()
-		debugModel = mb.createBox(1f, 1f, 1f, Material(ColorAttribute.createDiffuse(1f, 0f, 1f, 1.0f)), (VertexAttributes.Usage.Position or VertexAttributes.Usage.Normal).toLong())
+		debugModel = mb.createBox(10f, 10f, 10f, Material(ColorAttribute.createDiffuse(1f, 0f, 1f, 1.0f)), (VertexAttributes.Usage.Position or VertexAttributes.Usage.Normal).toLong())
 		debugModelInstance = ModelInstance(debugModel)
 		debugModelInstance.transform.idt()
 

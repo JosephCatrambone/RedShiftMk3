@@ -2,6 +2,7 @@ package io.xoana.redshift
 
 import com.badlogic.gdx.math.Vector2
 import com.badlogic.gdx.math.Vector3
+import java.util.*
 
 /**
  * Created by Jo on 2017-07-09.
@@ -452,70 +453,16 @@ class Polygon(val points:List<Vec>) {
 	// Triangulate this polygon, returning a list of 3n integers for the indices.
 	// O(n^3) runtime.
 	fun triangulate(up:Vec, counterClockWise:Boolean=true): IntArray {
-		val indices = MutableList<Int>(points.size, {i -> i}) // Copy all the indices.
-		val triangles = mutableListOf<Int>() // Push the triangles in threes to this.
-		var added = true
-		while(indices.size >= 3 && added) {
-			added = false
+		// First, build a triangulation from these polygon points.
+		val triangles = mutableListOf<Triangle>()
+		val pointIndices = MutableList<Int>(this.points.size, {i -> i})
+		val finalTriangleIndices = mutableListOf<Int>()
 
-			// Pick three points and see if it's a valid triangle.
-			outer@for(i in 0 until indices.size-2) {
-				val indA = indices[i]
-				val indB = indices[(i+1) % indices.size]
-				val indC = indices[(i+2) % indices.size]
-				val a = points[indA]
-				val b = points[indB]
-				val c = points[indC]
+		// Randomly shuffle the points.
+		val random = Random()
 
-				// Check orientation of this segment.
-				val triangle = Triangle(a, b, c)
-				val ind = if(triangle.normal.dot3(up) > 0) {
-					// Normal of ABC is pointing in the opposite direction of UP.
-					// Since pointing in the same direction as up indicates a clockwise rotation...
-					if(counterClockWise) {
-						Triple(indC, indB, indA) // Reverse
-					} else {
-						Triple(indA, indB, indC)
-					}
-				} else {
-					// triABC is in the opposite direction of the 'up' vector.
-					// So our winding is counter clockwise.
-					if(counterClockWise) {
-						Triple(indA, indB, indC)
-					} else {
-						Triple(indC, indB, indA) // Reverse
-					}
-				}
 
-				// Check to see if AC intersects any of the other lines in this polygon.
-				val edgeAC = Line(a, c)
-				for(j in 0 until points.size-1) {
-					val edge = Line(
-						points[j],
-						points[(j+1)%points.size]
-					)
-					val collision = edgeAC.segmentIntersection2D(edge)
-					if(collision != null) { // Collision!
-						if(collision == a || collision == c) {
-							continue // We don't care about collisions with self.
-						} else {
-							// Invalid triangle.
-							continue@outer
-						}
-					}
-				}
-
-				// This triangle is okay.
-				triangles.add(ind.first)
-				triangles.add(ind.second)
-				triangles.add(ind.third)
-
-				indices.remove(ind.second)
-				added = true
-				break@outer
-			}
-		}
-		return triangles.toIntArray()
+		return finalTriangleIndices.toIntArray()
 	}
 
 	fun pointInside(pt:Vec): Boolean {
