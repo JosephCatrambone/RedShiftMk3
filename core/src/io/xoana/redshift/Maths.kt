@@ -283,15 +283,21 @@ class Triangle(val a:Vec, val b:Vec, val c:Vec) {
 		get() = (b-a).cross3(c-a)
 
 	// Returns +1 if it's a left 0.  0 if abc are collinear.  -1 if right turn.
-	val getTurn(): Int {
+	fun getTurn(): Int {
 		// Det |1 ax ay|
 		//     |1 bx bt| > 0 -> Making a left hand turn.
 		//     |1 cx cy|
-		return 1f*(b.x*c.y - b.y*c.x) + -a.x*(1*c.y - b.y*1) + a.y*(1*c.x - b.x*1) > 0
+		val det = 1f*(b.x*c.y - b.y*c.x) + -a.x*(1*c.y - b.y*1) + a.y*(1*c.x - b.x*1)
+		if(det < 0) { return -1 }
+		else if(det == 0f) { return 0 }
+		else if(det > 0) { return 1 }
+		else {
+			throw Exception("Invalid state: determinant is NaN.  How can this happen?")
+		}
 	}
 
 	// Returns true if the triangle ABC is making a left turn.
-	val leftTurn(): Boolean {
+	fun leftTurn(): Boolean {
 		return getTurn() > 0f
 	}
 
@@ -335,13 +341,35 @@ class Triangle(val a:Vec, val b:Vec, val c:Vec) {
 		}
 	}
 
-	fun pointInCircumcircle2D(p:Vec): Boolean {
+	fun pointInCircumcircle2D(d:Vec): Boolean {
 		// If the det of the 4x4 matrix made by | ax ay ax^2+ay^2 1 | for a through d > 0, then d is inside the circumcircle if abc is a CCW polygon.
 		// a-dx a-dy (a-dx)^2+(a-dy)^2
-		val da = a-p
-		val db = b-p
-		val dc = c-p
-		TODO()
+		val da = a-d
+		val db = b-d
+		val dc = c-d
+
+		// q r s
+		// t u v
+		// w x y
+
+		val q = da.x
+		val r = da.y
+		val s = da.x*da.x + da.y*da.y
+
+		val t = db.x
+		val u = db.y
+		val v = db.x*db.x + db.y*db.y
+
+		val w = dc.x
+		val x = dc.y
+		val y = dc.x*dc.x + dc.y*dc.y
+		val det = q*(u*y-v*x) - r*(t*y - v*w) + s*(t*x-u*w)
+
+		if(leftTurn()) {
+			return det > 0
+		} else {
+			return det < 0
+		}
 	}
 
 	fun pointInTriangle3D(p:Vec, epsilon:Float=1e-6f):Boolean {

@@ -8,6 +8,7 @@ import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.math.Vector3;
 import io.xoana.redshift.editors.LevelEditorScreen;
+import io.xoana.redshift.screens.DebugDemoScreen;
 import io.xoana.redshift.screens.MainGameScreen;
 import io.xoana.redshift.screens.Screen;
 
@@ -26,10 +27,8 @@ public class GDXMain extends ApplicationAdapter {
 	public void create () {
 		assetManager = new AssetManager();
 		//screenStack.push(new MainGameScreen());
-		screenStack.push(new LevelEditorScreen());
-
-		SanityTests st = new SanityTests();
-		st.run();
+		//screenStack.push(new LevelEditorScreen());
+		screenStack.push(new DebugDemoScreen());
 
 		// We should add a post-init to set up the input listeners and such.
 		screenStack.peek().resize(Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
