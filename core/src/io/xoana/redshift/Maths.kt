@@ -5,6 +5,7 @@ import com.badlogic.gdx.math.Vector3
 
 /**
  * Created by Jo on 2017-07-09.
+ * 2017-11-26 : Added more triangulation and bug fixes.  Added normal to Triangle.  Added point-in-triangle.
  * 2017-11-24 : Added ray-triangle intersection.
  */
 class Vec(var x:Float=0f, var y:Float=0f, var z:Float=0f, var w:Float=0f) {
@@ -281,6 +282,19 @@ class Triangle(val a:Vec, val b:Vec, val c:Vec) {
 	val normal: Vec
 		get() = (b-a).cross3(c-a)
 
+	// Returns +1 if it's a left 0.  0 if abc are collinear.  -1 if right turn.
+	val getTurn(): Int {
+		// Det |1 ax ay|
+		//     |1 bx bt| > 0 -> Making a left hand turn.
+		//     |1 cx cy|
+		return 1f*(b.x*c.y - b.y*c.x) + -a.x*(1*c.y - b.y*1) + a.y*(1*c.x - b.x*1) > 0
+	}
+
+	// Returns true if the triangle ABC is making a left turn.
+	val leftTurn(): Boolean {
+		return getTurn() > 0f
+	}
+
 	fun intersection(line:Line, lineSegment:Boolean=false, planeIntersection:Boolean=false, epsilon:Float=1e-6f): Vec? {
 		/*
 		If the line doesn't intersect the triangle, returns null.
@@ -319,6 +333,15 @@ class Triangle(val a:Vec, val b:Vec, val c:Vec) {
 		} else {
 			return null
 		}
+	}
+
+	fun pointInCircumcircle2D(p:Vec): Boolean {
+		// If the det of the 4x4 matrix made by | ax ay ax^2+ay^2 1 | for a through d > 0, then d is inside the circumcircle if abc is a CCW polygon.
+		// a-dx a-dy (a-dx)^2+(a-dy)^2
+		val da = a-p
+		val db = b-p
+		val dc = c-p
+		TODO()
 	}
 
 	fun pointInTriangle3D(p:Vec, epsilon:Float=1e-6f):Boolean {

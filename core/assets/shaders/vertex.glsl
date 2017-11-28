@@ -32,8 +32,8 @@ uniform vec4 u_light2_color;
 uniform float u_light2_size;
 
 // Passed in and carried over.  Modifyable.
-out vec3 v_position_raw;
 out vec3 v_position_world;
+out vec4 v_position_screen;
 out vec4 v_color;
 out vec2 v_textureCoordinate;
 
@@ -43,10 +43,8 @@ float saturate(in float v) {
 
 void main() {
 	v_textureCoordinate = a_texCoord;
-	v_position_raw = a_position; // raw position.
 	v_position_world = (u_worldTransform*vec4(a_position, 1.0)).xyz;
-	v_color = vec4((u_light0_intensity * u_light0_color.rgb) / pow(distance(a_position, u_light0_position), 1), 1.0f);
-	v_color += vec4((u_light1_intensity * u_light1_color.rgb) / pow(distance(a_position, u_light1_position), 1), 1.0f);
-	v_color += vec4((u_light2_intensity * u_light2_color.rgb) / pow(distance(a_position, u_light2_position), 1), 1.0f);
-	gl_Position = u_cameraTransform * u_worldTransform * vec4(a_position.x, a_position.y, a_position.z, 1.0);
+	v_position_screen = u_cameraTransform * u_worldTransform * vec4(a_position, 1.0);
+	v_color = a_color; 
+	gl_Position = v_position_screen;
 }
