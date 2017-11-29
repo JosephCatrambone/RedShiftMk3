@@ -1,5 +1,5 @@
 buildscript {
-    ext.kotlinVersion = '1.1.60'
+    ext.kotlinVersion = '1.2.0'
 
     repositories {
         mavenLocal()
@@ -55,13 +55,13 @@ project(":desktop") {
 project(":core") {
     apply plugin: "kotlin"
 
-
     dependencies {
         compile "com.badlogicgames.gdx:gdx:$gdxVersion"
         compile "com.badlogicgames.gdx:gdx-bullet:$gdxVersion"
         compile "com.badlogicgames.gdx:gdx-freetype:$gdxVersion"
         compile "com.badlogicgames.gdx:gdx-controllers:$gdxVersion"
         compile "org.jetbrains.kotlin:kotlin-stdlib:$kotlinVersion"
+		testCompile 'junit:junit:4.12'
     }
 }
 

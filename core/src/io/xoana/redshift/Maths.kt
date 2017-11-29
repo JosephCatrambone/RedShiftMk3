@@ -3,9 +3,11 @@ package io.xoana.redshift
 import com.badlogic.gdx.math.Vector2
 import com.badlogic.gdx.math.Vector3
 import java.util.*
+import kotlin.math.*
 
 /**
  * Created by Jo on 2017-07-09.
+ * 2017-11-27 : Added point in circumcircle.
  * 2017-11-26 : Added more triangulation and bug fixes.  Added normal to Triangle.  Added point-in-triangle.
  * 2017-11-24 : Added ray-triangle intersection.
  */
@@ -27,7 +29,7 @@ class Vec(var x:Float=0f, var y:Float=0f, var z:Float=0f, var w:Float=0f) {
 		get():Float = this.dot(this)
 
 	val magnitude:Float
-		get():Float = Math.sqrt(this.squaredMagnitude.toDouble()).toFloat()
+		get():Float = sqrt(this.squaredMagnitude.toDouble()).toFloat()
 
 	var data:FloatArray
 		get() = floatArrayOf(x, y, z, w)
@@ -128,7 +130,7 @@ class Line(val start:Vec, val end:Vec) {
 	fun intersection2D(other:Line, epsilon:Float = 1e-8f): Vec? {
 		// Begin with line-line intersection.
 		val determinant = ((start.x-end.x)*(other.start.y-other.end.y))-((start.y-end.y)*(other.start.x-other.end.x))
-		if(Math.abs(determinant.toDouble()).toFloat() < epsilon) {
+		if(abs(determinant.toDouble()).toFloat() < epsilon) {
 			return null;
 		}
 
@@ -226,7 +228,7 @@ class Line(val start:Vec, val end:Vec) {
 			return true
 		} else {
 			TODO("Bugfix")
-			return ((Math.abs(((end.y-start.y)*pt.x - (end.x-start.x)*pt.y + end.x*start.y - end.y*start.x).toDouble()))/Math.sqrt(((end.x-start.x)*(end.x-start.x) + (end.y-start.y)*(end.y-start.y)).toDouble()).toFloat()) < epsilon
+			return ((abs(((end.y-start.y)*pt.x - (end.x-start.x)*pt.y + end.x*start.y - end.y*start.x).toDouble()))/sqrt(((end.x-start.x)*(end.x-start.x) + (end.y-start.y)*(end.y-start.y)).toDouble()).toFloat()) < epsilon
 		}
 	}
 }
@@ -267,14 +269,14 @@ class AABB(val x:Float, val y:Float, val w:Float, val h:Float) {
 		val thisCenter = this.center
 		val zeroOverlapX = this.w/2 + other.w/2 // Sum of half-widths.
 		val dx = otherCenter.x - thisCenter.x
-		val forceX = zeroOverlapX - Math.abs(dx) // If we apply forceX to the other object, it will bring it to this one's surface.
+		val forceX = zeroOverlapX - abs(dx) // If we apply forceX to the other object, it will bring it to this one's surface.
 		val zeroOverlapY = this.h/2 + other.h/2
 		val dy = otherCenter.y - thisCenter.y
-		val forceY = zeroOverlapY - Math.abs(dy)
-		if(Math.abs(forceX) < Math.abs(forceY)) {
-			return Vec(Math.copySign(forceX, dx))
+		val forceY = zeroOverlapY - abs(dy)
+		if(abs(forceX) < abs(forceY)) {
+			return Vec(abs(forceX)*sign(dx), 0f)
 		} else {
-			return Vec(0f, Math.copySign(forceY, dy))
+			return Vec(0f, abs(forceY)*sign(dy))
 		}
 	}
 }
@@ -318,7 +320,7 @@ class Triangle(val a:Vec, val b:Vec, val c:Vec) {
 		val numerator = normal.dot3(a - line.start)
 		val denominator = normal.dot3(line.end - line.start)
 
-		if(Math.abs(denominator) < epsilon) {
+		if(abs(denominator) < epsilon) {
 			return null
 		}
 
@@ -384,7 +386,7 @@ class Triangle(val a:Vec, val b:Vec, val c:Vec) {
 		var delta = s.dot3(s)
 
 		val invDeterminant = alpha*delta - gamma*beta
-		if(Math.abs(invDeterminant) < epsilon) {
+		if(abs(invDeterminant) < epsilon) {
 			return false
 		}
 		val determinant = 1.0f / invDeterminant
@@ -460,7 +462,77 @@ class Polygon(val points:List<Vec>) {
 
 		// Randomly shuffle the points.
 		val random = Random()
+		for(i in 0 until pointIndices.size) {
+			val j = i+random.nextInt(pointIndices.size-i)
+			val tmp = pointIndices[i]
+			pointIndices[i] = pointIndices[j]
+			pointIndices[j] = tmp
+		}
 
+		// Find the outer bounds of the point set.
+		var minX = Float.MAX_VALUE
+		var maxX = -Float.MAX_VALUE
+		var minY = Float.MAX_VALUE
+		var maxY = -Float.MAX_VALUE
+		points.forEach({ p ->
+			minX = minOf(p.x, minX)
+			maxX = maxOf(p.x, maxX)
+			minY = minOf(p.y, minY)
+			maxY = maxOf(p.y, maxY)
+		})
+		minX -= 1f
+		maxX += 1f
+		minY -= 1f
+		maxY += 1f
+
+		// Make two big triangles to cover the set.  We could do it with one, but I want to avoid precision errors.
+		val leftTri = Triangle(
+			Vec(minX, minY),
+			Vec(maxX, minY),
+			Vec(minX, maxY)
+		)
+		val rightTri = Triangle(
+			Vec(minX, maxY),
+			Vec(maxX, minY),
+			Vec(maxX, maxY)
+		)
+		triangles.add(leftTri)
+		triangles.add(rightTri)
+
+		// Add points at random and maintain the triangulation.
+		while(pointIndices.isNotEmpty()) {
+			val pIndex = pointIndices.removeAt(0)
+			val p = points[pIndex]
+			// Go through the triangles and get the one that contains p.
+			val trianglesThatContainP = triangles.filter({t -> t.pointInTriangle2D(p)})
+			if(trianglesThatContainP.isEmpty()) {
+				val sb = StringBuilder()
+				sb.append("P: $p\n")
+				triangles.forEach({ t -> sb.append("Tri: ${t.a}, ${t.b}, ${t.c}\n") })
+				throw Exception("What!?  p is somehow outside all the triangles: ${sb.toString()}")
+			}
+			// Remove the triangle we're going to split.
+			val triToSplit = trianglesThatContainP.first()
+			triangles.remove(triToSplit)
+			// Add newly formed triangles.
+			triangles.add(Triangle(triToSplit.a, triToSplit.b, p))
+			triangles.add(Triangle(triToSplit.b, triToSplit.c, p))
+			triangles.add(Triangle(triToSplit.c, triToSplit.a, p))
+		}
+
+		// Add the point indices, ignoring the ones that share a point with left/right tri.
+		val boundaryPoints = mutableSetOf<Vec>(leftTri.a, leftTri.b, leftTri.c, rightTri.c) // Don't have to care about rT.a and b because those are shared.
+		triangles.forEach({ t ->
+			// Check ALL the points of this triangle against the bounds.
+			if(boundaryPoints.contains(t.a) || boundaryPoints.contains(t.b) || boundaryPoints.contains(t.c)) {
+				//continue
+				// noop
+			} else {
+				finalTriangleIndices.add(points.indexOf(t.a))
+				finalTriangleIndices.add(points.indexOf(t.b))
+				finalTriangleIndices.add(points.indexOf(t.c))
+			}
+		})
 
 		return finalTriangleIndices.toIntArray()
 	}

@@ -8,7 +8,7 @@ import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.math.Vector3;
 import io.xoana.redshift.editors.LevelEditorScreen;
-import io.xoana.redshift.screens.DebugDemoScreen;
+//import io.xoana.redshift.screens.DebugDemoScreen;
 import io.xoana.redshift.screens.MainGameScreen;
 import io.xoana.redshift.screens.Screen;
 
