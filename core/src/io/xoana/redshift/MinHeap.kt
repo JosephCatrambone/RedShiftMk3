@@ -21,9 +21,13 @@ class MinHeap<T>(size:Int, val comparator: Comparator<T>): Iterable<T> {
 		TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
 	}
 
-	private fun getParent(index:Int): Int = index/2
+	private fun getParent(index:Int): Int = (index-1)/2
 	private fun leftChild(index:Int): Int = (index)*2 + 1
 	private fun rightChild(index:Int): Int = (index+1)*2
+
+	override fun toString(): String {
+		return items.joinToString(", ")
+	}
 
 	//         0
 	//     1        2
@@ -32,6 +36,19 @@ class MinHeap<T>(size:Int, val comparator: Comparator<T>): Iterable<T> {
 	//
 	// Left chain: 0 1 3 7 15
 	// Right chain: 0 2 6 14
+
+	fun verifyHeap() {
+		items.forEachIndexed({i, value ->
+			val leftPos = leftChild(i)
+			val rightPos = rightChild(i)
+			if(leftPos < items.size && items[leftPos] != null) {
+				assert(comparator.compare(value as T, items[leftPos] as T) <= 0)
+			}
+			if(rightPos < items.size && items[rightPos] != null) {
+				assert(comparator.compare(value as T, items[rightPos] as T) <= 0)
+			}
+		})
+	}
 
 	/*** push
 	 * Push the item onto the heap, maintaining the heap constant.
@@ -45,13 +62,14 @@ class MinHeap<T>(size:Int, val comparator: Comparator<T>): Iterable<T> {
 		var pos = nextInsertPosition
 		nextInsertPosition++
 		items[pos] = item
-		while(pos != getParent(pos) && comparator.compare(items[pos] as T, items[getParent(pos)] as T) < 0) {
-			// While we're not at the root and our recent insert is bigger than the parent.
-			// Swap.
-			val tmp = items[pos]
-			items[pos] = items[getParent(pos)]
-			items[getParent(pos)] = tmp
-			pos = getParent(pos)
+		while(pos != 0){
+			val parentIndex = getParent(pos)
+			if(comparator.compare(items[pos] as T, items[parentIndex] as T) < 0) {
+				val tmp = items[parentIndex]
+				items[parentIndex] = items[pos]
+				items[pos] = tmp
+			}
+			pos = parentIndex
 		}
 	}
 
@@ -76,21 +94,14 @@ class MinHeap<T>(size:Int, val comparator: Comparator<T>): Iterable<T> {
 			val leftValue = items[leftPos] as T?
 			val rightValue = items[rightPos] as T?
 
-			if(leftValue == null) {
-				// We're done.  Nothing to swap.
-			} else if(comparator.compare(leftValue, currentValue) < 0 && rightValue == null) {
-				// Left is less than current AND there's nothing on the right.
-				// Swap left.
-				items[pos] = leftValue
-				items[leftPos] = currentValue
-				// This is not necessary.  See note.
-				swapHappened = true
-				pos = leftPos
-				// NOTE: Since there's nothing on the right, we don't have to go into any depth since children
-				// of this would be placed into the right node.
-			} else if(comparator.compare(leftValue, currentValue) < 0 || comparator.compare(rightValue, currentValue) < 0) {
+			val leftSmallerThanCurrent = if(leftValue == null) { false } else { comparator.compare(leftValue, currentValue) < 0 }
+			val rightSmallerThanCurrent = if(rightValue == null) { false } else { comparator.compare(rightValue, currentValue) < 0 }
+			if(!leftSmallerThanCurrent && !rightSmallerThanCurrent) {
+				break
+			} else if(leftSmallerThanCurrent && rightSmallerThanCurrent) {
 				// current value is greater than the left or greater than the right.  Swap with the lesser.
-				if(comparator.compare(leftValue, rightValue) < 0) { // Left is smaller.
+				val leftSmallerThanRight = comparator.compare(leftValue, rightValue) < 0
+				if(leftSmallerThanRight) { // Left is smaller.
 					items[pos] = leftValue
 					items[leftPos] = currentValue
 					pos = leftPos
@@ -101,8 +112,17 @@ class MinHeap<T>(size:Int, val comparator: Comparator<T>): Iterable<T> {
 					pos = rightPos
 					swapHappened = true
 				}
+			} else if(leftSmallerThanCurrent) {
+				items[pos] = leftValue
+				items[leftPos] = currentValue
+				pos = leftPos
+				swapHappened = true
+			} else if(rightSmallerThanCurrent) {
+				items[pos] = rightValue
+				items[rightPos] = currentValue
+				pos = rightPos
+				swapHappened = true
 			}
-
 			leftPos = leftChild(pos)
 			rightPos = rightChild(pos)
 		}

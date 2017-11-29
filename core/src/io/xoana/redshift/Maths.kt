@@ -454,7 +454,7 @@ class Polygon(val points:List<Vec>) {
 
 	// Triangulate this polygon, returning a list of 3n integers for the indices.
 	// O(n^3) runtime.
-	fun triangulate(up:Vec, counterClockWise:Boolean=true): IntArray {
+	fun triangulate(up:Vec): IntArray {
 		// First, build a triangulation from these polygon points.
 		val pointIndices = MutableList<Int>(this.points.size, {i -> i})
 		val finalTriangleIndices = mutableListOf<Int>()
@@ -468,25 +468,26 @@ class Polygon(val points:List<Vec>) {
 		var triangleAdded = true
 		while(pointIndices.size > 2 && triangleAdded) {
 			triangleAdded = false
-			outer@for(offset in 0 until pointIndices.size-1) {
+			outer@for(offset in 1 until pointIndices.size) {
+				// A is the middle point of the triangle.
 				// iia = Index of the index of a.
-				val iia = offset % pointIndices.size
-				val iib = (offset + 1) % pointIndices.size
-				val iic = (offset + 2) % pointIndices.size
+				val iib = offset - 1
+				val iia = offset
+				val iic = (offset + 1) % pointIndices.size
 
-				val ia = pointIndices[iia]
-				val ib = pointIndices[iib]
-				val ic = pointIndices[iic]
+				var ib = pointIndices[iib]
+				var ia = pointIndices[iia]
+				var ic = pointIndices[iic]
 
-				val a = points[ia]
 				val b = points[ib]
+				val a = points[ia]
 				val c = points[ic]
 
 				// First, check if the line AC intersects another wall.
 				var valid = true
-				val candidateEdge = Line(a, c)
+				val candidateEdge = Line(b, c)
 				inner@edgePile.forEach { e ->
-					if(e.start != a && e.start != c && e.end != a && e.end != c) {
+					if(e.start != b && e.start != c && e.end != b && e.end != c) {
 						val intersection = candidateEdge.segmentIntersection2D(e)
 						if(intersection != null) {
 							valid = false
@@ -506,10 +507,19 @@ class Polygon(val points:List<Vec>) {
 				}
 
 				// Valid!  Add it.
-				finalTriangleIndices.add(ia)
+
+				// Check to see if we need to reverse the order.
+				if(Triangle(a, b, c).normal.dot3(up) < 0) {
+					val temp = ib
+					ib = ic
+					ic = temp
+				}
+
+				// Noop.  This triangle is in the same direction as up.
 				finalTriangleIndices.add(ib)
+				finalTriangleIndices.add(ia)
 				finalTriangleIndices.add(ic)
-				pointIndices.removeAt(iib)
+				pointIndices.removeAt(iia)
 				// And add the new edge to our pile.
 				edgePile.add(candidateEdge)
 				triangleAdded = true

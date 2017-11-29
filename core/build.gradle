@@ -1,6 +1,8 @@
 apply plugin: "kotlin"
 
-sourceCompatibility = 1.6
+// Want 1.8 because we want calls to static methods.
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
 [compileJava, compileTestJava]*.options*.encoding = 'UTF-8'
 
 sourceSets {

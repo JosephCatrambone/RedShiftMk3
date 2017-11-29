@@ -8,12 +8,15 @@ import com.badlogic.gdx.graphics.g3d.Renderable
 import com.badlogic.gdx.graphics.g3d.Shader
 import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute
 import com.badlogic.gdx.graphics.g3d.attributes.PointLightsAttribute
+import com.badlogic.gdx.graphics.g3d.environment.PointLight
 import com.badlogic.gdx.graphics.g3d.utils.RenderContext
 import com.badlogic.gdx.graphics.glutils.ShaderProgram
+import com.badlogic.gdx.math.Vector3
 import com.badlogic.gdx.utils.GdxRuntimeException
+import io.xoana.redshift.MinHeap
 
 class PBRShader : Shader {
-	val MAX_LIGHTS = 4
+	val MAX_LIGHTS = 3
 	val shaderProgram : ShaderProgram
 
 	// If we use setAttribute/setUniform, etc. it does a look up based on the string.
@@ -70,14 +73,26 @@ class PBRShader : Shader {
 	override fun render(renderable: Renderable) {
 		// Grab the lights from the environment and assign them based on proximity.
 		val pointLights = renderable.environment.get(PointLightsAttribute.Type) as PointLightsAttribute
-		pointLights.lights.forEachIndexed({ i, light ->
+		val transformPlaceholder = Vector3()
+		renderable.worldTransform.getTranslation(transformPlaceholder)
+		val lightSorter = MinHeap<PointLight>(pointLights.lights.size, Comparator({ p1, p2 ->
+			// We actually reverse this.  When we pop something, we want it to have the greatest distance.
+			p1.position.dst2(transformPlaceholder).compareTo(p2.position.dst2(transformPlaceholder))
+		}))
+		pointLights.lights.forEach({ light ->
+			lightSorter.push(light)
+		})
+
+		// Add the lights, sorted by distance, to the object, stopping at the limit.
+		for(i in 0 until minOf(lightSorter.size, MAX_LIGHTS)) {
+			val light = lightSorter.pop()!!
 			shaderProgram.setUniformf(lightIntensityUniformIndices[i], light.intensity)
 			shaderProgram.setUniformf(lightPositionUniformIndices[i], light.position)
 			shaderProgram.setUniformf(lightColorUniformIndices[i], light.color)
 			//Gdx.gl30.glVertexAttrib1f(lightIntensityUniformIndices[i], light.intensity);
 			//Gdx.gl30.glVertexAttrib4f(lightColorUniformIndices[i], light.color.r, light.color.g, light.color.b, light.color.a);
 			//Gdx.gl30.glVertexAttrib3f(lightPositionUniformIndices[i], light.position.x, light.position.y, light.position.z);
-		})
+		}
 
 		// Set transform.
 		shaderProgram.setUniformMatrix(worldTransformUniformIndex, renderable.worldTransform)
