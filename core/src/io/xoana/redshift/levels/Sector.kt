@@ -59,7 +59,7 @@ class Sector(
 				else -> throw Exception("Impossible: $i%3 >= 3")
 			}
 		})
-		val floorIndices = walls.triangulate(Vec(0f, 0f, 1f)).map { i -> i.toShort() }.toShortArray()
+		val floorIndices = walls.triangulate(Vec(0f, 0f, 1f), clockwise = false).map { i -> i.toShort() }.toShortArray()
 		meshPartBuilder.addMesh(floorVerts, floorIndices)
 
 		// Build the ceiling.
@@ -71,7 +71,7 @@ class Sector(
 				else -> throw Exception("Impossible: $i%3 >= 3")
 			}
 		})
-		val ceilingIndices = walls.triangulate(Vec(0f, 0f, -1f)).map { i -> i.toShort() }.toShortArray()
+		val ceilingIndices = walls.triangulate(Vec(0f, 0f, -1f), clockwise = false).map { i -> i.toShort() }.toShortArray()
 		meshPartBuilder.addMesh(ceilingVerts, ceilingIndices)
 
 		// Make the walls.

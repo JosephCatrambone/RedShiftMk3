@@ -454,7 +454,7 @@ class Polygon(val points:List<Vec>) {
 
 	// Triangulate this polygon, returning a list of 3n integers for the indices.
 	// O(n^3) runtime.
-	fun triangulate(up:Vec): IntArray {
+	fun triangulate(up:Vec, clockwise:Boolean = false): IntArray {
 		// First, build a triangulation from these polygon points.
 		val pointIndices = MutableList<Int>(this.points.size, {i -> i})
 		val finalTriangleIndices = mutableListOf<Int>()
@@ -509,7 +509,7 @@ class Polygon(val points:List<Vec>) {
 				// Valid!  Add it.
 
 				// Check to see if we need to reverse the order.
-				if(Triangle(a, b, c).normal.dot3(up) < 0) {
+				if(Triangle(a, b, c).normal.dot3(up) < 0 == clockwise) {
 					val temp = ib
 					ib = ic
 					ic = temp

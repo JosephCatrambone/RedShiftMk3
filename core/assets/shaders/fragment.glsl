@@ -37,4 +37,5 @@ void main() {
 	finalColor += vec3((u_light1_intensity * v_color.rgb * u_light1_color.rgb) / pow(distance(v_position_world, u_light1_position), 1));
 	finalColor += vec3((u_light2_intensity * v_color.rgb * u_light2_color.rgb) / pow(distance(v_position_world, u_light2_position), 1));
     gl_FragColor = vec4(finalColor, 1.0f); //vec4(v_textureCoordinate, 1.0, 1.0);
+    //gl_FragColor = vec4(1.0f, 1.0f, 1.0f, 1.0f);
 }
