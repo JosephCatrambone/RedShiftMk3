@@ -513,6 +513,7 @@ class Polygon(val points:List<Vec>) {
 				// And add the new edge to our pile.
 				edgePile.add(candidateEdge)
 				triangleAdded = true
+				break@outer
 			}
 		}
 
