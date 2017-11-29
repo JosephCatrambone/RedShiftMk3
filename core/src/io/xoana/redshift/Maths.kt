@@ -456,83 +456,65 @@ class Polygon(val points:List<Vec>) {
 	// O(n^3) runtime.
 	fun triangulate(up:Vec, counterClockWise:Boolean=true): IntArray {
 		// First, build a triangulation from these polygon points.
-		val triangles = mutableListOf<Triangle>()
 		val pointIndices = MutableList<Int>(this.points.size, {i -> i})
 		val finalTriangleIndices = mutableListOf<Int>()
 
-		// Randomly shuffle the points.
-		val random = Random()
-		for(i in 0 until pointIndices.size) {
-			val j = i+random.nextInt(pointIndices.size-i)
-			val tmp = pointIndices[i]
-			pointIndices[i] = pointIndices[j]
-			pointIndices[j] = tmp
+		val edgePile = mutableListOf<Line>()
+		// Add all the lines so we can quickly go through them to validate new edges.
+		for(i in 0 until points.size) {
+			edgePile.add(Line(points[i], points[(i+1)%points.size]))
 		}
 
-		// Find the outer bounds of the point set.
-		var minX = Float.MAX_VALUE
-		var maxX = -Float.MAX_VALUE
-		var minY = Float.MAX_VALUE
-		var maxY = -Float.MAX_VALUE
-		points.forEach({ p ->
-			minX = minOf(p.x, minX)
-			maxX = maxOf(p.x, maxX)
-			minY = minOf(p.y, minY)
-			maxY = maxOf(p.y, maxY)
-		})
-		minX -= 1f
-		maxX += 1f
-		minY -= 1f
-		maxY += 1f
+		var triangleAdded = true
+		while(pointIndices.size > 2 && triangleAdded) {
+			triangleAdded = false
+			outer@for(offset in 0 until pointIndices.size-1) {
+				// iia = Index of the index of a.
+				val iia = offset % pointIndices.size
+				val iib = (offset + 1) % pointIndices.size
+				val iic = (offset + 2) % pointIndices.size
 
-		// Make two big triangles to cover the set.  We could do it with one, but I want to avoid precision errors.
-		val leftTri = Triangle(
-			Vec(minX, minY),
-			Vec(maxX, minY),
-			Vec(minX, maxY)
-		)
-		val rightTri = Triangle(
-			Vec(minX, maxY),
-			Vec(maxX, minY),
-			Vec(maxX, maxY)
-		)
-		triangles.add(leftTri)
-		triangles.add(rightTri)
+				val ia = pointIndices[iia]
+				val ib = pointIndices[iib]
+				val ic = pointIndices[iic]
 
-		// Add points at random and maintain the triangulation.
-		while(pointIndices.isNotEmpty()) {
-			val pIndex = pointIndices.removeAt(0)
-			val p = points[pIndex]
-			// Go through the triangles and get the one that contains p.
-			val trianglesThatContainP = triangles.filter({t -> t.pointInTriangle2D(p)})
-			if(trianglesThatContainP.isEmpty()) {
-				val sb = StringBuilder()
-				sb.append("P: $p\n")
-				triangles.forEach({ t -> sb.append("Tri: ${t.a}, ${t.b}, ${t.c}\n") })
-				throw Exception("What!?  p is somehow outside all the triangles: ${sb.toString()}")
+				val a = points[ia]
+				val b = points[ib]
+				val c = points[ic]
+
+				// First, check if the line AC intersects another wall.
+				var valid = true
+				val candidateEdge = Line(a, c)
+				inner@edgePile.forEach { e ->
+					if(e.start != a && e.start != c && e.end != a && e.end != c) {
+						val intersection = candidateEdge.segmentIntersection2D(e)
+						if(intersection != null) {
+							valid = false
+						}
+					}
+				}
+
+				if (!valid) {
+					continue@outer
+				}
+
+				// This triangle may be valid.  Check to see if the midpoint is inside the polygon.
+				val midpoint = (candidateEdge.end + candidateEdge.start)/2f
+				if(pointInside(midpoint)) {
+					valid = false
+					continue@outer
+				}
+
+				// Valid!  Add it.
+				finalTriangleIndices.add(ia)
+				finalTriangleIndices.add(ib)
+				finalTriangleIndices.add(ic)
+				pointIndices.removeAt(iib)
+				// And add the new edge to our pile.
+				edgePile.add(candidateEdge)
+				triangleAdded = true
 			}
-			// Remove the triangle we're going to split.
-			val triToSplit = trianglesThatContainP.first()
-			triangles.remove(triToSplit)
-			// Add newly formed triangles.
-			triangles.add(Triangle(triToSplit.a, triToSplit.b, p))
-			triangles.add(Triangle(triToSplit.b, triToSplit.c, p))
-			triangles.add(Triangle(triToSplit.c, triToSplit.a, p))
 		}
-
-		// Add the point indices, ignoring the ones that share a point with left/right tri.
-		val boundaryPoints = mutableSetOf<Vec>(leftTri.a, leftTri.b, leftTri.c, rightTri.c) // Don't have to care about rT.a and b because those are shared.
-		triangles.forEach({ t ->
-			// Check ALL the points of this triangle against the bounds.
-			if(boundaryPoints.contains(t.a) || boundaryPoints.contains(t.b) || boundaryPoints.contains(t.c)) {
-				//continue
-				// noop
-			} else {
-				finalTriangleIndices.add(points.indexOf(t.a))
-				finalTriangleIndices.add(points.indexOf(t.b))
-				finalTriangleIndices.add(points.indexOf(t.c))
-			}
-		})
 
 		return finalTriangleIndices.toIntArray()
 	}
