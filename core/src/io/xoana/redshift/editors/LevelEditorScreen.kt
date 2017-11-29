@@ -27,9 +27,19 @@ import java.util.*
  * Ctrl+Middle Mouse : Zoom Camera
  * Middle Mouse or Space : Drag Camera
  * F12 : Build 3D map.
+ * F1 : Toggle 3D view.
+ * Tab : Toggle triangulation.
+ *
+ * Select tool:
+ * Backspace / X : Delete sector
+ * Ctrl + Z : Undo
+ *
+ * Draw tool:
+ * Backspace : Delete last point/stop drawing.
  */
 
 class LevelEditorScreen : Screen() {
+	// 1 unit = 10cm
 	val random = Random()
 
 	// 3D shortcuts and movement options
@@ -154,6 +164,10 @@ class LevelEditorScreen : Screen() {
 					}
 				}
 			}
+
+			// Draw the walk-mode camera.
+			shapeBatch.color = Color.CORAL
+			shapeBatch.line(walkCamera.position.x, walkCamera.position.y, walkCamera.position.x+walkCamera.direction.x, walkCamera.position.y+walkCamera.direction.y)
 
 			// Draw the active tool.
 			activeTool.draw(shapeBatch)
