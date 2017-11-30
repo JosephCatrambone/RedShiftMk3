@@ -3,6 +3,7 @@ package io.xoana.redshift.shaders
 import com.badlogic.gdx.Gdx
 import com.badlogic.gdx.graphics.Camera
 import com.badlogic.gdx.graphics.GL20
+import com.badlogic.gdx.graphics.PerspectiveCamera
 import com.badlogic.gdx.graphics.VertexAttributes
 import com.badlogic.gdx.graphics.g3d.Renderable
 import com.badlogic.gdx.graphics.g3d.Shader
@@ -16,6 +17,8 @@ import com.badlogic.gdx.utils.GdxRuntimeException
 import io.xoana.redshift.MinHeap
 
 class PBRShader : Shader {
+	var camera: Camera? = null // Set when rendering begins.  Cleared at end.
+
 	val MAX_LIGHTS = 3
 	val shaderProgram : ShaderProgram
 
@@ -64,6 +67,7 @@ class PBRShader : Shader {
 	override fun compareTo(other: Shader?): Int = 0
 
 	override fun begin(camera: Camera, context: RenderContext) {
+		this.camera = camera
 		shaderProgram.begin()
 		shaderProgram.setUniformMatrix(cameraTransformUniformIndex, camera.combined)
 		context.setDepthTest(GL20.GL_LEQUAL)
@@ -73,11 +77,9 @@ class PBRShader : Shader {
 	override fun render(renderable: Renderable) {
 		// Grab the lights from the environment and assign them based on proximity.
 		val pointLights = renderable.environment.get(PointLightsAttribute.Type) as PointLightsAttribute
-		val transformPlaceholder = Vector3()
-		renderable.worldTransform.getTranslation(transformPlaceholder)
 		val lightSorter = MinHeap<PointLight>(pointLights.lights.size, Comparator({ p1, p2 ->
 			// We actually reverse this.  When we pop something, we want it to have the greatest distance.
-			p1.position.dst2(transformPlaceholder).compareTo(p2.position.dst2(transformPlaceholder))
+			p1.position.dst2(camera!!.position).compareTo(p2.position.dst2(camera!!.position))
 		}))
 		pointLights.lights.forEach({ light ->
 			lightSorter.push(light)
@@ -107,6 +109,7 @@ class PBRShader : Shader {
 
 	override fun end() {
 		shaderProgram.end()
+		this.camera = null
 	}
 
 	override fun dispose() {
