@@ -293,7 +293,7 @@ class LevelEditorScreen : Screen() {
 			sectors.forEach { s ->
 				val center = s.calculateCenter()
 				val color = Color(random.nextFloat()*0.5f + 0.5f, random.nextFloat()*0.5f + 0.5f, random.nextFloat()*0.5f + 0.5f, 1.0f)
-				val light = PointLight().set(color, center.toGDXVector3(), 10.0f)
+				val light = PointLight().set(color, center.toGDXVector3(), 1.0f)
 				environment.add(light)
 				lightList.add(light)
 			}

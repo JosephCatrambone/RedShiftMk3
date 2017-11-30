@@ -1,6 +1,7 @@
 package io.xoana.redshift.levels
 
 import com.badlogic.gdx.graphics.g3d.utils.MeshPartBuilder
+import com.badlogic.gdx.math.Vector3
 import io.xoana.redshift.Line
 import io.xoana.redshift.Polygon
 import io.xoana.redshift.Vec
@@ -76,24 +77,58 @@ class Sector(
 
 		// Make the walls.
 		// GL_CCW is front-facing.
-		/*
 		for(i in 0 until walls.points.size) {
 			val p0 = walls.points[i]
 			val p1 = walls.points[(i+1)%walls.points.size]
-			// Left triangle, CCW.
-			meshPartBuilder.triangle(
-				Vector3(p0.x, p0.y, floorHeight),
-				Vector3(p1.x, p1.y, floorHeight),
-				Vector3(p0.x, p0.y, ceilingHeight)
-			)
-			// Right triangle, also CCW.
-			meshPartBuilder.triangle(
-				Vector3(p0.x, p0.y, ceilingHeight),
-				Vector3(p1.x, p1.y, floorHeight),
-				Vector3(p1.x, p1.y, ceilingHeight)
-			)
+			val nbr = neighbors[i]
+			// If this wall has a neighbor, we do things differently.
+			if(nbr == null) {
+				// Left triangle, CCW.
+				meshPartBuilder.triangle(
+						Vector3(p0.x, p0.y, floorHeight),
+						Vector3(p1.x, p1.y, floorHeight),
+						Vector3(p0.x, p0.y, ceilingHeight)
+				)
+				// Right triangle, also CCW.
+				meshPartBuilder.triangle(
+						Vector3(p0.x, p0.y, ceilingHeight),
+						Vector3(p1.x, p1.y, floorHeight),
+						Vector3(p1.x, p1.y, ceilingHeight)
+				)
+			} else {
+				// We DO need to handle this differently.
+				// If the floor of the neighbor is higher than ours, we build the base that leads up.
+				if(nbr.floorHeight > this.floorHeight) {
+					// Left triangle, CCW.
+					meshPartBuilder.triangle(
+						Vector3(p0.x, p0.y, floorHeight),
+						Vector3(p1.x, p1.y, floorHeight),
+						Vector3(p0.x, p0.y, nbr.floorHeight)
+					)
+					// Right triangle, also CCW.
+					meshPartBuilder.triangle(
+						Vector3(p0.x, p0.y, nbr.floorHeight),
+						Vector3(p1.x, p1.y, floorHeight),
+						Vector3(p1.x, p1.y, nbr.floorHeight)
+					)
+				}
+
+				// We also need to build the ceiling.
+				if(nbr.ceilingHeight < this.ceilingHeight) {
+					meshPartBuilder.triangle(
+							Vector3(p0.x, p0.y, nbr.ceilingHeight),
+							Vector3(p1.x, p1.y, nbr.ceilingHeight),
+							Vector3(p0.x, p0.y, ceilingHeight)
+					)
+					// Right triangle, also CCW.
+					meshPartBuilder.triangle(
+							Vector3(p0.x, p0.y, ceilingHeight),
+							Vector3(p1.x, p1.y, nbr.ceilingHeight),
+							Vector3(p1.x, p1.y, ceilingHeight)
+					)
+				}
+			}
 		}
-		*/
 	}
 
 	fun calculateCenter(): Vec {

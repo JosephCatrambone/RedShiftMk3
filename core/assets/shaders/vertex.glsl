@@ -35,6 +35,7 @@ uniform float u_light2_size;
 out vec3 v_position_world;
 out vec4 v_position_screen;
 out vec4 v_color;
+out vec3 v_normal;
 out vec2 v_textureCoordinate;
 
 float saturate(in float v) {
@@ -43,8 +44,11 @@ float saturate(in float v) {
 
 void main() {
 	v_textureCoordinate = a_texCoord;
+	// Doing the transform to world position here leads to interpolation on frag level.  That's okay.
 	v_position_world = (u_worldTransform*vec4(a_position, 1.0)).xyz;
 	v_position_screen = u_cameraTransform * u_worldTransform * vec4(a_position, 1.0);
-	v_color = a_color; 
+	v_color = a_color;
+	v_normal = a_normal;
+	v_textureCoordinate = a_texCoord;
 	gl_Position = v_position_screen;
 }
