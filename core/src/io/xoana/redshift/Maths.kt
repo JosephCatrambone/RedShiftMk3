@@ -452,6 +452,20 @@ class Triangle(val a:Vec, val b:Vec, val c:Vec) {
 class Polygon(val points:List<Vec>) {
 	// TODO: There's a bug here in the triangulation for big sectors.
 
+	fun getReversedWinding(): Polygon {
+		val tempList = List<Vec>(points.size, { i -> points[points.size-i-1]})
+		return Polygon(tempList)
+	}
+
+	fun isCounterClockwise(): Boolean {
+		// If the quantity sum(all n) { (x_n+1 - x_n) * (y_n+1 + y-n)
+		var accumulator = 0f
+		for(i in 0 until points.size) {
+			accumulator += (points[(i+1)%points.size].x-points[i].x)*(points[(i+1)%points.size].y+points[i].y)
+		}
+		return accumulator <= 0
+	}
+
 	// Triangulate this polygon, returning a list of 3n integers for the indices.
 	// O(n^3) runtime.
 	fun triangulate(up:Vec, clockwise:Boolean = false): IntArray {

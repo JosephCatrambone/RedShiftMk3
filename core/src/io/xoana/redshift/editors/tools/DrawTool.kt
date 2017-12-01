@@ -79,7 +79,15 @@ class DrawTool(editor: LevelEditorScreen) : EditorTool {
 
 	fun finalizeSector() {
 		// Make our candidate sector into a real one.
-		val s = Sector(Polygon(newSector!!), 0f, 10f)
+		var poly = Polygon(newSector!!)
+		val ccw = poly.isCounterClockwise()
+		println("New polygon CCW: ${poly.isCounterClockwise()}")
+		if(ccw) {
+			println("Reversing.")
+			poly = poly.getReversedWinding()
+		}
+
+		val s = Sector(poly, 0f, 10f)
 		editorRef.sectors.add(s)
 		editorRef.notifySectorUpdate()
 		// Clear the sector so we can handle the next one.

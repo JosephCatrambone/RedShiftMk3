@@ -40,6 +40,7 @@ import java.util.*
 
 class LevelEditorScreen : Screen() {
 	// 1 unit = 10cm
+	val METER = 10f // 10 units = 100cm = 1m
 	val random = Random()
 
 	// 3D shortcuts and movement options
