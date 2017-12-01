@@ -31,6 +31,29 @@ class MinHeapTest {
 		}
 	}
 
+	@Test
+	fun checkPartialHeapFill() {
+		val ordering = mutableListOf<Int>()
+		var prev = -1
+		val mh = MinHeap<Int>(100, kotlin.Comparator<Int>({o1, o2 -> o1.compareTo(o2) }))
+		for(i in 0 until 20) {
+			val v = random.nextInt(100)
+			ordering.add(v)
+			mh.push(v)
+		}
+		for(i in 0 until 10) {
+			mh.pop()
+			mh.push(random.nextInt(100))
+		}
+		prev = mh.pop()!! // Can't be null.  We just filled it.
+		while(!mh.isEmpty) {
+			val v = mh.pop()
+			assertNotNull("Not null check failure. Ordering $ordering", v)
+			assertTrue("Condition check failed.  $prev > $v \n Ordering: $ordering", prev <= v!!)
+			prev = v
+		}
+	}
+
 	fun checkOldFailureCase(ordering: List<Int>) {
 		var iterations = 0
 		val mh = MinHeap<Int>(ordering.size, kotlin.Comparator({ o1, o2 -> o1.compareTo(o2) }))

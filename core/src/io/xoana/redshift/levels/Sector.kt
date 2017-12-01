@@ -1,5 +1,6 @@
 package io.xoana.redshift.levels
 
+import com.badlogic.gdx.graphics.VertexAttribute
 import com.badlogic.gdx.graphics.g3d.utils.MeshPartBuilder
 import com.badlogic.gdx.math.Vector3
 import io.xoana.redshift.Line
@@ -83,52 +84,67 @@ class Sector(
 			val nbr = neighbors[i]
 			// If this wall has a neighbor, we do things differently.
 			if(nbr == null) {
+				val pts = makeWall(p0, p1, floorHeight, ceilingHeight)
+				val topLeft = pts[0]
+				val bottomLeft = pts[1]
+				val bottomRight = pts[2]
+				val topRight = pts[3]
+
+				// UV
+
 				// Left triangle, CCW.
-				meshPartBuilder.triangle(
-						Vector3(p0.x, p0.y, floorHeight),
-						Vector3(p1.x, p1.y, floorHeight),
-						Vector3(p0.x, p0.y, ceilingHeight)
-				)
+				meshPartBuilder.triangle(bottomLeft, bottomRight, topLeft)
 				// Right triangle, also CCW.
-				meshPartBuilder.triangle(
-						Vector3(p0.x, p0.y, ceilingHeight),
-						Vector3(p1.x, p1.y, floorHeight),
-						Vector3(p1.x, p1.y, ceilingHeight)
-				)
+				meshPartBuilder.triangle(topLeft, bottomRight, topRight)
 			} else {
 				// We DO need to handle this differently.
 				// If the floor of the neighbor is higher than ours, we build the base that leads up.
 				if(nbr.floorHeight > this.floorHeight) {
+					val pts = makeWall(p0, p1, floorHeight, nbr.floorHeight)
 					// Left triangle, CCW.
-					meshPartBuilder.triangle(
-						Vector3(p0.x, p0.y, floorHeight),
-						Vector3(p1.x, p1.y, floorHeight),
-						Vector3(p0.x, p0.y, nbr.floorHeight)
-					)
+					meshPartBuilder.triangle(pts[0], pts[1], pts[2])
 					// Right triangle, also CCW.
-					meshPartBuilder.triangle(
-						Vector3(p0.x, p0.y, nbr.floorHeight),
-						Vector3(p1.x, p1.y, floorHeight),
-						Vector3(p1.x, p1.y, nbr.floorHeight)
-					)
+					meshPartBuilder.triangle(pts[0], pts[2], pts[3])
 				}
 
 				// We also need to build the ceiling.
 				if(nbr.ceilingHeight < this.ceilingHeight) {
-					meshPartBuilder.triangle(
-							Vector3(p0.x, p0.y, nbr.ceilingHeight),
-							Vector3(p1.x, p1.y, nbr.ceilingHeight),
-							Vector3(p0.x, p0.y, ceilingHeight)
-					)
+					val pts = makeWall(p0, p1, nbr.ceilingHeight, ceilingHeight)
+					meshPartBuilder.triangle(pts[0], pts[1], pts[2])
 					// Right triangle, also CCW.
-					meshPartBuilder.triangle(
-							Vector3(p0.x, p0.y, ceilingHeight),
-							Vector3(p1.x, p1.y, nbr.ceilingHeight),
-							Vector3(p1.x, p1.y, ceilingHeight)
-					)
+					meshPartBuilder.triangle(pts[0], pts[2], pts[3])
 				}
 			}
 		}
+	}
+
+	private fun makeWall(p0:Vec, p1:Vec, floor:Float, ceil:Float): Array<MeshPartBuilder.VertexInfo> {
+		val topLeft = MeshPartBuilder.VertexInfo()
+		val topRight = MeshPartBuilder.VertexInfo()
+		val bottomLeft = MeshPartBuilder.VertexInfo()
+		val bottomRight = MeshPartBuilder.VertexInfo()
+
+		// Location
+		topLeft.hasPosition = true
+		topLeft.position.set(p0.x, p0.y, ceil)
+		topRight.hasPosition = true
+		topRight.position.set(p1.x, p1.y, ceil)
+		bottomLeft.hasPosition = true
+		bottomLeft.position.set(p0.x, p0.y, floor)
+		bottomRight.hasPosition = true
+		bottomRight.position.set(p1.x, p1.y, floor)
+
+		// Normal
+		topLeft.hasNormal = true
+		topLeft.normal.set(topRight.position.cpy().crs(bottomLeft.position.cpy()).nor())
+		topRight.hasNormal = true
+		topRight.normal.set(topLeft.normal.cpy())
+		bottomLeft.hasNormal = true
+		bottomLeft.normal.set(topLeft.normal.cpy())
+		bottomRight.hasNormal = true
+		bottomRight.normal.set(topLeft.normal.cpy())
+
+		return arrayOf<MeshPartBuilder.VertexInfo>(topLeft, bottomLeft, bottomRight, topRight)
 	}
 
 	fun calculateCenter(): Vec {

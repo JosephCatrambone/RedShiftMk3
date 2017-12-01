@@ -11,6 +11,10 @@ import io.xoana.redshift.levels.Sector
 
 class DrawTool(editor: LevelEditorScreen) : EditorTool {
 	val UNDO_BUTTON = Input.Keys.BACKSPACE
+	val RAISE_FLOOR = Input.Keys.PAGE_UP
+	val DROP_FLOOR = Input.Keys.PAGE_DOWN
+	val RAISE_CEILING = Input.Keys.HOME
+	val DROP_CEILING = Input.Keys.END
 
 	val WALL_COLOR = Color(0.9f, 0.9f, 0.9f, 1.0f)
 	val VERT_SIZE = 3.0f
@@ -19,6 +23,8 @@ class DrawTool(editor: LevelEditorScreen) : EditorTool {
 	override val editorRef = editor
 
 	var newSector: MutableList<Vec>? = null // Null until we start drawing it.
+	var ceilHeight = 1f
+	var floorHeight = 0f
 
 	override fun onClick(button:Int) {
 		// Grab and unwrap the sector coordinates.
@@ -54,6 +60,23 @@ class DrawTool(editor: LevelEditorScreen) : EditorTool {
 				}
 			}
 		}
+
+		if(Gdx.input.isKeyJustPressed(RAISE_CEILING)) {
+			ceilHeight += 1f
+			editorRef.pushMessage("Ceil height: $ceilHeight")
+		}
+		if(Gdx.input.isKeyJustPressed(DROP_CEILING)) {
+			ceilHeight -= 1f
+			editorRef.pushMessage("Ceil height: $ceilHeight")
+		}
+		if(Gdx.input.isKeyJustPressed(RAISE_FLOOR)) {
+			floorHeight += 1f
+			editorRef.pushMessage("Floor height: $floorHeight")
+		}
+		if(Gdx.input.isKeyJustPressed(DROP_FLOOR)) {
+			floorHeight -= 1f
+			editorRef.pushMessage("Floor height: $floorHeight")
+		}
 	}
 
 	override fun draw(shapeBatch: ShapeRenderer) {
@@ -87,7 +110,7 @@ class DrawTool(editor: LevelEditorScreen) : EditorTool {
 			poly = poly.getReversedWinding()
 		}
 
-		val s = Sector(poly, 0f, 10f)
+		val s = Sector(poly, floorHeight, ceilHeight)
 		editorRef.sectors.add(s)
 		editorRef.notifySectorUpdate()
 		// Clear the sector so we can handle the next one.
