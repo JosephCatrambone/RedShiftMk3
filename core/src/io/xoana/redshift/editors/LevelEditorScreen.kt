@@ -389,6 +389,7 @@ class LevelEditorScreen : Screen() {
 		// Building lighting.
 		pushMessage("Building lighting")
 		lightList.forEach { environment.remove(it) }
+		environment.clear()
 		/*
 		sectors.forEach { s ->
 			val center = s.calculateCenter()

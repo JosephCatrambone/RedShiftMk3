@@ -39,9 +39,8 @@ class ObjectTool(editor: LevelEditorScreen) : EditorTool {
 		// TODO: Get the sector Z and move light.
 		light.position.z = 1.0f
 		editorRef.gameObjects.add(light)
-
-		val pointLight = PointLight().set(light.color, light.position.toGDXVector3(), light.intensity)
-		editorRef.environment.add(pointLight)
+		//val pointLight = PointLight().set(light.color, light.position.toGDXVector3(), light.intensity)
+		//editorRef.environment.add(pointLight)
 	}
 
 	fun select(localMouse:Vec) {
@@ -94,6 +93,9 @@ class ObjectTool(editor: LevelEditorScreen) : EditorTool {
 	}
 
 	override fun draw(shapeRenderer: ShapeRenderer) {
-
+		if(selected != null) {
+			shapeRenderer.color = Color.RED
+			shapeRenderer.circle(selected!!.position.x, selected!!.position.y, selected!!.radius)
+		}
 	}
 }
