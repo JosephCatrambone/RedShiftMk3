@@ -31,6 +31,11 @@ uniform vec3 u_light2_position;
 uniform vec4 u_light2_color;
 uniform float u_light2_size;
 
+uniform float u_light3_intensity;
+uniform vec3 u_light3_position;
+uniform vec4 u_light3_color;
+uniform float u_light3_size;
+
 // Passed in and carried over.  Modifyable.
 out vec3 v_position_world;
 out vec4 v_position_screen;

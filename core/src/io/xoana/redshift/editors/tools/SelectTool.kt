@@ -13,14 +13,14 @@ class SelectTool(editor: LevelEditorScreen) : EditorTool {
 	val MAX_SELECTION_DISTANCE = 100f
 	val SELECTED_COLOR = Color(0.9f, 0.1f, 0.0f, 0.9f)
 	val DESELECT_KEY = Input.Keys.ESCAPE
-	val DELETE_KEY = Input.Keys.DEL
+	val DELETE_KEY = Input.Keys.X
 
 	override val editorRef: LevelEditorScreen = editor
 	var selected : Sector? = null
 	var deleted: Sector? = null // If we removed one, it's stored here briefly.
 	private val bounds: Vec = Vec() // Using the XYZW here.
 
-	override fun onClick() {
+	override fun onClick(button:Int) {
 		if(editorRef.sectors.isEmpty()) {
 			return
 		}

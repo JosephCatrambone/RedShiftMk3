@@ -20,7 +20,7 @@ class DrawTool(editor: LevelEditorScreen) : EditorTool {
 
 	var newSector: MutableList<Vec>? = null // Null until we start drawing it.
 
-	override fun onClick() {
+	override fun onClick(button:Int) {
 		// Grab and unwrap the sector coordinates.
 		val screenMouse = Vector3(Gdx.input.x.toFloat(), Gdx.input.y.toFloat(), 0.0f) // 0.0f for camera-near.
 		val localMouse = Vec(editorRef.editCamera.unproject(screenMouse.cpy())) // Have to copy because GDX mangles this.

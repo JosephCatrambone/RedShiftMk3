@@ -12,6 +12,8 @@ import io.xoana.redshift.*
 import io.xoana.redshift.screens.Screen
 import com.badlogic.gdx.math.Quaternion
 import io.xoana.redshift.editors.tools.*
+import io.xoana.redshift.gameobjects.GameObject
+import io.xoana.redshift.gameobjects.LightObject
 import io.xoana.redshift.levels.Level
 import io.xoana.redshift.levels.Sector
 import io.xoana.redshift.shaders.PBRShader
@@ -63,6 +65,7 @@ class LevelEditorScreen : Screen() {
 	val SWITCH_MODE = Input.Keys.F1
 	val SELECT_TOOL = Input.Keys.Q
 	val DRAW_TOOL = Input.Keys.W
+	val OBJECT_TOOL = Input.Keys.E
 
 	val MESSAGE_FADE_TIME = 5f // Five seconds might be too fast.
 
@@ -75,6 +78,7 @@ class LevelEditorScreen : Screen() {
 	val VERT_SIZE = 3f
 	val VERT_COLOR = Color(0.8f, 0.8f, 0.9f, 1.0f)
 	val SECTOR_FILL_COLOR = Color(0.1f, 0.1f, 0.7f, 0.5f)
+	val GAME_OBJECT_COLOR = Color(0.3f, 0.5f, 0.9f, 1.0f)
 
 	// UI
 	val font = BitmapFont()
@@ -82,6 +86,7 @@ class LevelEditorScreen : Screen() {
 
 	// For 2D rendering.
 	var mouseDown: Vec? = null // On null, mouse was not down.
+	var mouseButtonDown: Int = -1
 	val editCamera = OrthographicCamera(Gdx.graphics.width.toFloat(), Gdx.graphics.height.toFloat())
 	val shapeBatch = ShapeRenderer() // Maybe a sprite renderer?
 	val spriteBatch = SpriteBatch()
@@ -102,6 +107,7 @@ class LevelEditorScreen : Screen() {
 	// Editor bits
 	val sectors = mutableListOf<Sector>()
 	var level: Level = Level(arrayListOf<Sector>())
+	val gameObjects = mutableListOf<GameObject>()
 	var activeTool: EditorTool = DrawTool(this)
 	var walkMode = false // If we're in walk mode, render 3D, otherwise render in 2D.
 
@@ -166,6 +172,9 @@ class LevelEditorScreen : Screen() {
 				}
 			}
 
+			// Draw all our objects.
+			gameObjects.forEach { ob -> drawGameObject(shapeBatch, ob) }
+
 			// Draw the walk-mode camera.
 			shapeBatch.color = Color.CORAL
 			shapeBatch.line(walkCamera.position.x, walkCamera.position.y, walkCamera.position.x+walkCamera.direction.x, walkCamera.position.y+walkCamera.direction.y)
@@ -226,10 +235,15 @@ class LevelEditorScreen : Screen() {
 		// TODO: We should handle drag events.
 		if(Gdx.input.isButtonPressed(0)) {
 			mouseDown = Vec(Gdx.input.x.toFloat(), Gdx.input.y.toFloat())
+			mouseButtonDown = 0
+		} else if(Gdx.input.isButtonPressed(1)) {
+			mouseDown = Vec(Gdx.input.x.toFloat(), Gdx.input.y.toFloat())
+			mouseButtonDown = 1
 		} else {
 			if(mouseDown != null) {
 				mouseDown = null
-				activeTool.onClick()
+				activeTool.onClick(mouseButtonDown)
+				mouseButtonDown = -1
 			}
 		}
 
@@ -248,6 +262,9 @@ class LevelEditorScreen : Screen() {
 		} else if(Gdx.input.isKeyJustPressed(DRAW_TOOL)) {
 			activeTool = DrawTool(this)
 			pushMessage("Draw Tool")
+		} else if(Gdx.input.isKeyJustPressed(OBJECT_TOOL)) {
+			activeTool = ObjectTool(this)
+			pushMessage("Object Tool")
 		}
 
 		// Zoom the camera if the Ctrl button is down and we're using middle mouse,
@@ -284,29 +301,7 @@ class LevelEditorScreen : Screen() {
 		}
 
 		if(Gdx.input.isKeyJustPressed(BUILD_MAP)) {
-			pushMessage("Rebuilding map")
 			rebuildLevel()
-			pushMessage("Map built")
-
-			// Building lighting.
-			pushMessage("Building lighting")
-			lightList.forEach { environment.remove(it) }
-			sectors.forEach { s ->
-				val center = s.calculateCenter()
-				val color = Color(random.nextFloat()*0.5f + 0.5f, random.nextFloat()*0.5f + 0.5f, random.nextFloat()*0.5f + 0.5f, 1.0f)
-				val light = PointLight().set(color, center.toGDXVector3(), 1.0f)
-				environment.add(light)
-				lightList.add(light)
-			}
-			pushMessage("Built lighting")
-
-			// Move the camera to the middle of sector 0.
-			val center = sectors.first().calculateCenter()
-			center.z += sectors.first().floorHeight
-			center.z += sectors.first().ceilingHeight
-			center.z /= 2.0f
-			walkCamera.lookAt(center.toGDXVector3())
-			println("Moving camera to ${center.x}, ${center.y}, ${center.z}")
 		}
 
 		activeTool.update(deltaTime)
@@ -358,6 +353,16 @@ class LevelEditorScreen : Screen() {
 		}
 	}
 
+	fun drawGameObject(shapeBatch: ShapeRenderer, gob:GameObject) {
+		shapeBatch.color = GAME_OBJECT_COLOR
+		shapeBatch.circle(gob.position.x, gob.position.y, gob.radius)
+		shapeBatch.line(gob.position.x, gob.position.y, gob.position.x+gob.forward.x, gob.position.y+gob.forward.y)
+	}
+
+	fun drawLight(shapeBatch: ShapeRenderer, light:LightObject) {
+
+	}
+
 	fun snapToGrid(v:Float): Float {
 		return Math.round(v/gridSize)*gridSize
 	}
@@ -376,8 +381,38 @@ class LevelEditorScreen : Screen() {
 	}
 
 	fun rebuildLevel() {
+		pushMessage("Rebuilding map")
 		level.dispose()
 		level = Level(this.sectors)
+		pushMessage("Map built")
+
+		// Building lighting.
+		pushMessage("Building lighting")
+		lightList.forEach { environment.remove(it) }
+		/*
+		sectors.forEach { s ->
+			val center = s.calculateCenter()
+			val color = Color(random.nextFloat()*0.5f + 0.5f, random.nextFloat()*0.5f + 0.5f, random.nextFloat()*0.5f + 0.5f, 1.0f)
+			val light = PointLight().set(color, center.toGDXVector3(), 1.0f)
+			environment.add(light)
+			lightList.add(light)
+		}
+		*/
+		gameObjects.filter { ob -> ob is LightObject }.forEach { ob ->
+			val lob = ob as LightObject
+			val light = PointLight().set(lob.color, lob.position.toGDXVector3(), lob.intensity)
+			environment.add(light)
+			lightList.add(light)
+		}
+		pushMessage("Built lighting")
+
+		// Move the camera to the middle of sector 0.
+		val center = sectors.first().calculateCenter()
+		center.z += sectors.first().floorHeight
+		center.z += sectors.first().ceilingHeight
+		center.z /= 2.0f
+		walkCamera.lookAt(center.toGDXVector3())
+		println("Moving camera to ${center.x}, ${center.y}, ${center.z}")
 	}
 
 	fun notifySectorUpdate() {

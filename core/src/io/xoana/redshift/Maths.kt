@@ -63,6 +63,7 @@ class Vec(var x:Float=0f, var y:Float=0f, var z:Float=0f, var w:Float=0f) {
 	operator fun div(other:Vec):Vec = Vec(this.x/other.x, this.y/other.y, this.z/other.z, this.w/other.w) // TODO: This probably shouldn't exist because of the default zeros.
 
 	operator fun plusAssign(value:Float) { x += value; y += value; z += value; w += value; }
+	operator fun plusAssign(value:Vec) { this.x += value.x; this.y += value.y; this.z += value.z; this.w += value.w; }
 
 	fun sum():Float {
 		return x+y+z+w

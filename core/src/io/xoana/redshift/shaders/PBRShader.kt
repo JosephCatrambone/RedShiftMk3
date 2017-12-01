@@ -19,7 +19,7 @@ import io.xoana.redshift.MinHeap
 class PBRShader : Shader {
 	var camera: Camera? = null // Set when rendering begins.  Cleared at end.
 
-	val MAX_LIGHTS = 3
+	val MAX_LIGHTS = 4
 	val shaderProgram : ShaderProgram
 
 	// If we use setAttribute/setUniform, etc. it does a look up based on the string.
