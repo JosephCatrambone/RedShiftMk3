@@ -31,8 +31,8 @@ class Level(val sectors: List<Sector>) {
 			val meshBuilder: MeshPartBuilder = modelBuilder.part(
 					"sector_$i",
 					GL20.GL_TRIANGLES,
-					//(VertexAttributes.Usage.Position or VertexAttributes.Usage.ColorUnpacked or VertexAttributes.Usage.Normal or VertexAttributes.Usage.TextureCoordinates).toLong(),
-					VertexAttributes.Usage.Position.toLong(), // We will only be providing location for now.  Soon UV, etc.
+					(VertexAttributes.Usage.Position or VertexAttributes.Usage.ColorUnpacked or VertexAttributes.Usage.Normal or VertexAttributes.Usage.TextureCoordinates).toLong(),
+					//VertexAttributes.Usage.Position.toLong(), // We will only be providing location for now.  Soon UV, etc.
 					mat
 			)
 			//node.translation.set(10f, 0f, 0f)

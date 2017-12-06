@@ -76,14 +76,16 @@ class PBRShader : Shader {
 
 	override fun render(renderable: Renderable) {
 		// Grab the lights from the environment and assign them based on proximity.
-		val pointLights = renderable.environment.get(PointLightsAttribute.Type) as PointLightsAttribute
-		val lightSorter = MinHeap<PointLight>(pointLights.lights.size, Comparator({ p1, p2 ->
+		val pointLights = renderable.environment.get(PointLightsAttribute.Type) as? PointLightsAttribute
+		val lightSorter = MinHeap<PointLight>(pointLights?.lights?.size ?: 0, Comparator({ p1, p2 ->
 			// We actually reverse this.  When we pop something, we want it to have the greatest distance.
 			p1.position.dst2(camera!!.position).compareTo(p2.position.dst2(camera!!.position))
 		}))
-		pointLights.lights.forEach({ light ->
-			lightSorter.push(light)
-		})
+		if(pointLights != null) {
+			pointLights.lights.forEach({ light ->
+				lightSorter.push(light)
+			})
+		}
 
 		// Add the lights, sorted by distance, to the object, stopping at the limit.
 		for(i in 0 until minOf(lightSorter.size, MAX_LIGHTS)) {

@@ -1,16 +1,27 @@
 package io.xoana.redshift.levels
 
+import com.badlogic.gdx.graphics.Color
+import com.badlogic.gdx.graphics.GL30
 import com.badlogic.gdx.graphics.VertexAttribute
+import com.badlogic.gdx.graphics.VertexAttributes
+import com.badlogic.gdx.graphics.g3d.Material
+import com.badlogic.gdx.graphics.g3d.Model
 import com.badlogic.gdx.graphics.g3d.utils.MeshPartBuilder
+import com.badlogic.gdx.graphics.g3d.utils.ModelBuilder
+import com.badlogic.gdx.math.Vector2
 import com.badlogic.gdx.math.Vector3
 import io.xoana.redshift.Line
 import io.xoana.redshift.Polygon
 import io.xoana.redshift.Vec
 
 class Sector(
+		//val id: Int,
 		var walls: Polygon,
 		var floorHeight: Float,
 		var ceilingHeight: Float
+		//var floorMaterial: Material,
+		//var ceilingMaterial: Material,
+		//var wallMaterial: Material
 ) {
 	// On the one hand, if we copied the reference to the point from the neighbor, that would mean edits saved us the trouble.
 	// Not sure how well we'd adapt to changes, though.
@@ -47,12 +58,28 @@ class Sector(
 		}
 	}
 
+	fun buildModel(): Model {
+		val mb = ModelBuilder()
+		lateinit var mp:MeshPartBuilder
+		mb.begin()
+
+		// Floor.
+		//mp = mb.part("sector${id}_floor", GL30.GL_TRIANGLES, VertexAttributes(), floorMaterial)
+
+		// Ceiling.
+
+		// Walls.
+
+		return mb.end()
+	}
+
 	// Each Model has Mesh[], MeshPart[], and Material[].
 	// Mesh has Vert[] and Indices[].
 	// MeshPart has offset and size which points into mesh.
 	// We handle this construction by passing a MeshBuilder into our method.
 	fun buildMesh(meshPartBuilder: MeshPartBuilder) {
 		// Make the floor verts.
+		/*
 		val floorVerts = FloatArray(walls.points.size*3, {i ->
 			when(i%3) {
 				0 -> walls.points[i/3].x
@@ -61,8 +88,11 @@ class Sector(
 				else -> throw Exception("Impossible: $i%3 >= 3")
 			}
 		})
+		*/
 		val floorIndices = walls.triangulate(Vec(0f, 0f, 1f), clockwise = false).map { i -> i.toShort() }.toShortArray()
-		meshPartBuilder.addMesh(floorVerts, floorIndices)
+		//meshPartBuilder.addMesh(floorVerts, floorIndices)
+		walls.points.forEach { p -> meshPartBuilder.vertex(Vector3(p.x, p.y, floorHeight), Vector3(0f, 0f, 1f), Color(1f, 1f, 1f, 1f), Vector2(0f, 0f)) }
+		floorIndices.forEach { i -> meshPartBuilder.index( i ) }
 
 		// Build the ceiling.
 		val ceilingVerts = FloatArray(walls.points.size*3, {i ->
@@ -75,6 +105,8 @@ class Sector(
 		})
 		val ceilingIndices = walls.triangulate(Vec(0f, 0f, -1f), clockwise = false).map { i -> i.toShort() }.toShortArray()
 		meshPartBuilder.addMesh(ceilingVerts, ceilingIndices)
+		//walls.points.forEach { p -> meshPartBuilder.vertex(Vector3(p.x, p.y, ceilingHeight), Vector3(0f, 0f, -1f), Color(1f, 1f, 1f, 1f), Vector2(0f, 0f))}
+		//ceilingIndices.forEach { i -> meshPartBuilder.index(i) }
 
 		// Make the walls.
 		// GL_CCW is front-facing.
@@ -92,10 +124,10 @@ class Sector(
 
 				// UV
 
-				// Left triangle, CCW.
-				meshPartBuilder.triangle(bottomLeft, bottomRight, topLeft)
-				// Right triangle, also CCW.
-				meshPartBuilder.triangle(topLeft, bottomRight, topRight)
+				// Quad, CCW.
+				meshPartBuilder.rect(topLeft, bottomLeft, bottomRight, topRight)
+				//meshPartBuilder.triangle(bottomLeft, bottomRight, topLeft)
+				//meshPartBuilder.triangle(topLeft, bottomRight, topRight)
 			} else {
 				// We DO need to handle this differently.
 				// If the floor of the neighbor is higher than ours, we build the base that leads up.
@@ -134,9 +166,15 @@ class Sector(
 		bottomRight.hasPosition = true
 		bottomRight.position.set(p1.x, p1.y, floor)
 
+		// Calculate surface normal.
+		val a = Vec(p0.x, p0.y, ceil)
+		val b = Vec(p1.x, p1.y, ceil)
+		val c = Vec(p0.x, p0.y, floor)
+		val norm = (b-a).cross3(c-a).normalized()
+
 		// Normal
 		topLeft.hasNormal = true
-		topLeft.normal.set(topRight.position.cpy().crs(bottomLeft.position.cpy()).nor())
+		topLeft.normal.set(norm.toGDXVector3())
 		topRight.hasNormal = true
 		topRight.normal.set(topLeft.normal.cpy())
 		bottomLeft.hasNormal = true

@@ -42,7 +42,7 @@ void main() {
 	// We do this calc in vertex instead.
 	//vec3 v_position_world = (u_worldTransform*vec4(a_position, 1.0)).xyz;
 	vec3 worldNormal = normalize(u_worldTransform * vec4(v_normal, 0.0)).xyz;
-	float brightnessNormalModifier0 = 1.0; //dot(worldNormal, (u_worldTransform*vec4(u_light0_position, 1.0)).xyz);
+	float brightnessNormalModifier0 = 1.0; //max(0.0, dot(worldNormal, (u_worldTransform*vec4(u_light0_position, 1.0)).xyz));
 	float brightnessNormalModifier1 = 1.0; //dot(worldNormal, (u_worldTransform*vec4(u_light1_position, 1.0)).xyz);
 	float brightnessNormalModifier2 = 1.0; //dot(worldNormal, (u_worldTransform*vec4(u_light2_position, 1.0)).xyz);
 	float brightnessNormalModifier3 = 1.0; //dot(worldNormal, (u_worldTransform*vec4(u_light3_position, 1.0)).xyz);
