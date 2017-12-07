@@ -67,7 +67,8 @@ class Sector(
 		lateinit var mp:MeshPartBuilder
 		mb.begin()
 
-		val modelAttributes = (VertexAttributes.Usage.Position or VertexAttributes.Usage.ColorUnpacked or VertexAttributes.Usage.Normal or VertexAttributes.Usage.TextureCoordinates).toLong()
+		//val modelAttributes = (VertexAttributes.Usage.Position or VertexAttributes.Usage.ColorUnpacked or VertexAttributes.Usage.Normal or VertexAttributes.Usage.TextureCoordinates).toLong()
+		val modelAttributes = (VertexAttributes.Usage.Position).toLong()
 
 		// Floor.
 		mp = mb.part("sector${id}_floor", GL30.GL_TRIANGLES, modelAttributes, floorMaterial)
@@ -81,6 +82,7 @@ class Sector(
 		})
 		val floorIndices = walls.triangulate(Vec(0f, 0f, 1f), false).map { i -> i.toShort() }.toShortArray()
 		mp.addMesh(floorVerts, floorIndices)
+		//mp.setUVRange(0f, 0f, 1f, 1f)
 
 		// Ceiling.
 		mp = mb.part("sector${id}_ceiling", GL30.GL_TRIANGLES, modelAttributes, ceilingMaterial)
@@ -92,7 +94,7 @@ class Sector(
 				else -> throw Exception("Impossible: $i%3 >= 3")
 			}
 		})
-		val ceilingIndices = walls.triangulate(Vec(0f, 0f, 1f), false).map{i -> i.toShort()}.toShortArray()
+		val ceilingIndices = walls.triangulate(Vec(0f, 0f, -1f), false).map{i -> i.toShort()}.toShortArray()
 		mp.addMesh(ceilingVerts, ceilingIndices)
 
 		// Walls.
