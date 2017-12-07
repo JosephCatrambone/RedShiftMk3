@@ -142,7 +142,7 @@ class LevelEditorScreen : Screen() {
 			walkCamera.update(true)
 
 			modelBatch.begin(walkCamera)
-			modelBatch.render(level.modelInstance, environment, shader)
+			modelBatch.render(level.visibleSectors, environment, shader)
 			modelBatch.end()
 		} else {
 			editCamera.update(true)

@@ -15,13 +15,13 @@ import io.xoana.redshift.Polygon
 import io.xoana.redshift.Vec
 
 class Sector(
-		//val id: Int,
+		val id: Int,
 		var walls: Polygon,
 		var floorHeight: Float,
-		var ceilingHeight: Float
-		//var floorMaterial: Material,
-		//var ceilingMaterial: Material,
-		//var wallMaterial: Material
+		var ceilingHeight: Float,
+		var floorMaterial: Material,
+		var ceilingMaterial: Material,
+		var wallMaterial: Material
 ) {
 	// On the one hand, if we copied the reference to the point from the neighbor, that would mean edits saved us the trouble.
 	// Not sure how well we'd adapt to changes, though.
@@ -58,28 +58,19 @@ class Sector(
 		}
 	}
 
+	// Each Model has Mesh[], MeshPart[], and Material[].
+	// Mesh has Vert[] and Indices[].
+	// MeshPart has offset and size which points into mesh.
+	// Already tried passing in a MeshPartBuilder, but we need more control over our model production and don't want one enormous model.
 	fun buildModel(): Model {
 		val mb = ModelBuilder()
 		lateinit var mp:MeshPartBuilder
 		mb.begin()
 
+		val modelAttributes = (VertexAttributes.Usage.Position or VertexAttributes.Usage.ColorUnpacked or VertexAttributes.Usage.Normal or VertexAttributes.Usage.TextureCoordinates).toLong()
+
 		// Floor.
-		//mp = mb.part("sector${id}_floor", GL30.GL_TRIANGLES, VertexAttributes(), floorMaterial)
-
-		// Ceiling.
-
-		// Walls.
-
-		return mb.end()
-	}
-
-	// Each Model has Mesh[], MeshPart[], and Material[].
-	// Mesh has Vert[] and Indices[].
-	// MeshPart has offset and size which points into mesh.
-	// We handle this construction by passing a MeshBuilder into our method.
-	fun buildMesh(meshPartBuilder: MeshPartBuilder) {
-		// Make the floor verts.
-		/*
+		mp = mb.part("sector${id}_floor", GL30.GL_TRIANGLES, modelAttributes, floorMaterial)
 		val floorVerts = FloatArray(walls.points.size*3, {i ->
 			when(i%3) {
 				0 -> walls.points[i/3].x
@@ -88,13 +79,11 @@ class Sector(
 				else -> throw Exception("Impossible: $i%3 >= 3")
 			}
 		})
-		*/
-		val floorIndices = walls.triangulate(Vec(0f, 0f, 1f), clockwise = false).map { i -> i.toShort() }.toShortArray()
-		//meshPartBuilder.addMesh(floorVerts, floorIndices)
-		walls.points.forEach { p -> meshPartBuilder.vertex(Vector3(p.x, p.y, floorHeight), Vector3(0f, 0f, 1f), Color(1f, 1f, 1f, 1f), Vector2(0f, 0f)) }
-		floorIndices.forEach { i -> meshPartBuilder.index( i ) }
+		val floorIndices = walls.triangulate(Vec(0f, 0f, 1f), false).map { i -> i.toShort() }.toShortArray()
+		mp.addMesh(floorVerts, floorIndices)
 
-		// Build the ceiling.
+		// Ceiling.
+		mp = mb.part("sector${id}_ceiling", GL30.GL_TRIANGLES, modelAttributes, ceilingMaterial)
 		val ceilingVerts = FloatArray(walls.points.size*3, {i ->
 			when(i%3) {
 				0 -> walls.points[i/3].x
@@ -103,13 +92,11 @@ class Sector(
 				else -> throw Exception("Impossible: $i%3 >= 3")
 			}
 		})
-		val ceilingIndices = walls.triangulate(Vec(0f, 0f, -1f), clockwise = false).map { i -> i.toShort() }.toShortArray()
-		meshPartBuilder.addMesh(ceilingVerts, ceilingIndices)
-		//walls.points.forEach { p -> meshPartBuilder.vertex(Vector3(p.x, p.y, ceilingHeight), Vector3(0f, 0f, -1f), Color(1f, 1f, 1f, 1f), Vector2(0f, 0f))}
-		//ceilingIndices.forEach { i -> meshPartBuilder.index(i) }
+		val ceilingIndices = walls.triangulate(Vec(0f, 0f, 1f), false).map{i -> i.toShort()}.toShortArray()
+		mp.addMesh(ceilingVerts, ceilingIndices)
 
-		// Make the walls.
-		// GL_CCW is front-facing.
+		// Walls.
+		mp = mb.part("sector${id}_walls", GL30.GL_TRIANGLES, modelAttributes, wallMaterial)
 		for(i in 0 until walls.points.size) {
 			val p0 = walls.points[i]
 			val p1 = walls.points[(i+1)%walls.points.size]
@@ -125,7 +112,7 @@ class Sector(
 				// UV
 
 				// Quad, CCW.
-				meshPartBuilder.rect(topLeft, bottomLeft, bottomRight, topRight)
+				mp.rect(topLeft, bottomLeft, bottomRight, topRight)
 				//meshPartBuilder.triangle(bottomLeft, bottomRight, topLeft)
 				//meshPartBuilder.triangle(topLeft, bottomRight, topRight)
 			} else {
@@ -134,20 +121,22 @@ class Sector(
 				if(nbr.floorHeight > this.floorHeight) {
 					val pts = makeWall(p0, p1, floorHeight, nbr.floorHeight)
 					// Left triangle, CCW.
-					meshPartBuilder.triangle(pts[0], pts[1], pts[2])
+					mp.triangle(pts[0], pts[1], pts[2])
 					// Right triangle, also CCW.
-					meshPartBuilder.triangle(pts[0], pts[2], pts[3])
+					mp.triangle(pts[0], pts[2], pts[3])
 				}
 
 				// We also need to build the ceiling.
 				if(nbr.ceilingHeight < this.ceilingHeight) {
 					val pts = makeWall(p0, p1, nbr.ceilingHeight, ceilingHeight)
-					meshPartBuilder.triangle(pts[0], pts[1], pts[2])
+					mp.triangle(pts[0], pts[1], pts[2])
 					// Right triangle, also CCW.
-					meshPartBuilder.triangle(pts[0], pts[2], pts[3])
+					mp.triangle(pts[0], pts[2], pts[3])
 				}
 			}
 		}
+
+		return mb.end()
 	}
 
 	private fun makeWall(p0:Vec, p1:Vec, floor:Float, ceil:Float): Array<MeshPartBuilder.VertexInfo> {

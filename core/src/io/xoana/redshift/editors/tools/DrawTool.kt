@@ -110,7 +110,7 @@ class DrawTool(editor: LevelEditorScreen) : EditorTool {
 			poly = poly.getReversedWinding()
 		}
 
-		val s = Sector(poly, floorHeight, ceilHeight)
+		val s = Sector(0, poly, floorHeight, ceilHeight, GDXMain.materialLibrary["defaultFloor"]!!, GDXMain.materialLibrary["defaultFloor"]!!, GDXMain.materialLibrary["defaultWall"]!!)
 		editorRef.sectors.add(s)
 		editorRef.notifySectorUpdate()
 		// Clear the sector so we can handle the next one.

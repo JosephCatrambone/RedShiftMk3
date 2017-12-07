@@ -6,18 +6,23 @@ import com.badlogic.gdx.assets.AssetManager;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.g3d.Material;
+import com.badlogic.gdx.graphics.g3d.attributes.TextureAttribute;
 import com.badlogic.gdx.math.Vector3;
 import io.xoana.redshift.editors.LevelEditorScreen;
 //import io.xoana.redshift.screens.DebugDemoScreen;
 import io.xoana.redshift.screens.MainGameScreen;
 import io.xoana.redshift.screens.Screen;
 
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.Stack;
 
 public class GDXMain extends ApplicationAdapter {
 	public static Stack<Screen> screenStack = new Stack<Screen>();
 	public static AssetManager assetManager;
+	public static HashMap<String, Material> materialLibrary = new HashMap<>();
 	public static Long frameCount = 0L;
 
 	public float timeToNextCapture = 0f;
@@ -26,6 +31,21 @@ public class GDXMain extends ApplicationAdapter {
 	@Override
 	public void create () {
 		assetManager = new AssetManager();
+
+		// Load the default material.
+		assetManager.load("wall_256x256.png", Texture.class);
+		assetManager.load("floor_256x256.png", Texture.class);
+		while(!assetManager.update()) {
+			assetManager.finishLoading();
+		}
+
+		// Build the base materials.  We can load the rest async.
+		materialLibrary.put("defaultWall", new Material());
+		materialLibrary.put("defaultFloor", new Material());
+		materialLibrary.get("defaultWall").set(TextureAttribute.createDiffuse(assetManager.get("wall_256x256.png", Texture.class)));
+		materialLibrary.get("defaultFloor").set(TextureAttribute.createDiffuse(assetManager.get("floor_256x256.png", Texture.class)));
+
+		// Set up game state.
 		//screenStack.push(new MainGameScreen());
 		screenStack.push(new LevelEditorScreen());
 		//screenStack.push(new DebugDemoScreen());
